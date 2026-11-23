@@ -12,6 +12,8 @@ export async function api(request,env,{user,app='analytics'}={}){
   const simulation=Boolean(env.SIMULATION_TOKEN&&request.headers.get('x-simulation-token')===env.SIMULATION_TOKEN);
   if(!user&&!simulation)throw new HttpError(401,'Sign in with ChatGPT to use this application.');
   if(app==='store'&&['/api/agent','/api/dashboard','/api/experiments','/api/web-comparison'].includes(path))throw new HttpError(404,'Endpoint not found.');
+  if(request.method==='GET'&&path==='/api/store/catalog')return respond({products:await rpc(env,'fw_catalog',{})});
+  if(request.method==='GET'&&path==='/api/store/analytics-config')return respond({token:env.POSTHOG_PROJECT_TOKEN||null,host:env.POSTHOG_HOST||null});
   if(request.method==='GET'&&path==='/api/status')return respond({supabase:Boolean(env.SUPABASE_URL&&env.SUPABASE_SECRET_KEY),posthog_capture:Boolean(env.POSTHOG_PROJECT_TOKEN&&env.POSTHOG_HOST),posthog_query:Boolean(env.POSTHOG_PERSONAL_API_KEY&&env.POSTHOG_PROJECT_ID),model:Boolean(env.OPENAI_API_KEY&&env.OPENAI_MODEL||env.MODEL_API_KEY&&env.MODEL_NAME),mode:env.OPENAI_API_KEY&&env.OPENAI_MODEL||env.MODEL_API_KEY&&env.MODEL_NAME?'agent':'guided',app});
   if(request.method==='GET'&&path==='/api/store/cart'){
    const session=await sessionFor(request,env);return respond({items:await rpc(env,'fw_cart',{p_user:session.user,p_session:session.session_id}),shopper:session});

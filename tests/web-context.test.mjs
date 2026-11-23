@@ -7,3 +7,7 @@ test('atomic web event context preserves price trust, idempotency and blocked ge
  const report=(await db.query("select fw_web_analytics('fieldwork_live_v2','2026-11-22','2026-11-23') result")).rows[0].result;assert.equal(report.rows.find(x=>x.dimension==='event'&&x.value==='view_item').events,1);await db.query('update fw_event_outbox set delivery_suppressed=true');assert.equal((await db.query('select * from fw_claim_events(100)')).rows.length,0);
  }finally{await db.close();}
 });
+
+test('deployed capture configuration exposes only public capture fields and never query credentials',async()=>{
+ const {api}=await import('../platform/http.mjs');const response=await api(new Request('https://shop.test/api/store/analytics-config'),{POSTHOG_PROJECT_TOKEN:'public-project-token',POSTHOG_HOST:'https://capture.test',POSTHOG_PERSONAL_API_KEY:'private-query-key',SUPABASE_SECRET_KEY:'private-database-key'},{user:'owner',app:'store'});assert.equal(response.status,200);assert.deepEqual(await response.json(),{token:'public-project-token',host:'https://capture.test'});
+});

@@ -14,7 +14,7 @@ pipeline, and API integrations are real.
 | Area | Implemented and verified | Still pending |
 | --- | --- | --- |
 | Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Verify checkout again in the hosted signed-in session. |
-| Supabase | Dedicated development project provisioned; 15 protected tables, six demo shoppers, two products. Transaction and authorization tests pass. | Run the 2,000-shopper application-flow simulation. |
+| Supabase | Dedicated development project provisioned; 15 protected tables, six demo shopper accounts, twelve active products. Transaction and authorization tests pass. | Generated traffic is isolated and delivery-disabled; the website view uses actual browser interactions. |
 | Analytics UI | Separate dashboard, chat, evidence drawer, experiment workspace and editable PowerPoint readout. Supabase and PostHog source selection executes fresh queries and compares the results. | Continue validation with planned real traffic. |
 | OpenAI agent | Funded Responses API tool-calling investigations return model explanations and inspectable evidence. The final bounded turn is reserved for an explanation. | Evaluate quality on more real analytics questions. |
 | PostHog | Server-only query key configured. Fresh queries independently reproduce the persisted experiment metrics; transactional outboxes deliver commerce and experiment events. | No scheduled retry worker; delivery lag is shown as a comparison difference. |
@@ -25,6 +25,10 @@ and the [existing storefront](https://fieldwork-checkout-lab.bapnocap.chatgpt.si
 The experiment view executes live queries against either source. The scripted
 2,000-visitor fixture and live demo interactions are kept in separate datasets.
 OpenAI credits are configured. The captioned walkthrough uses actual tool-backed model responses; see [demo recording and readout instructions](docs/demo/README.md).
+
+## Website activity and catalog
+
+The storefront now has 12 products served from Supabase. The Website activity view uses PostHog browser events for visitor/pageview counts and Supabase for signed-in actions and orders. The Compare sources control validates the shared canonical-event cohort; browser-only guest traffic remains separate. Capture configuration is loaded from the deployed runtime, and collection is driven by actual site use. See [website collection and comparison](docs/website-collection.md).
 
 ## Revenue by product
 

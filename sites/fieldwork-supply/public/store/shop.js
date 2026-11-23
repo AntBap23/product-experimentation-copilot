@@ -1,9 +1,10 @@
 (async()=>{
 await window.fieldworkExperiment.ready;
-const catalog = [
-  { id: 'ridge-22', name: 'Ridge Daypack', price: 84, description: 'A lightweight 22 L pack with easy-access side pockets.' },
-  { id: 'summit-750', name: 'Summit Bottle', price: 28, description: 'A 750 mL insulated bottle for full days outside.' },
-];
+const catalogResponse=await fetch('/api/store/catalog',{credentials:'same-origin'});
+const catalogResult=await catalogResponse.json();if(!catalogResponse.ok)throw Error(catalogResult.error||'The catalog could not be loaded.');
+const catalog=catalogResult.products;
+const escapeText=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 
 const experiment = window.fieldworkExperiment;
 const bag = new Map();
@@ -40,6 +41,7 @@ function track(event, properties = {}) {
     traffic_origin: 'website',
     experiment_id: experiment.id, variant: experiment.variant, experiment_unit_id: experiment.visitor, allocation_unit: "visitor", experiment_preview: experiment.preview,
     ...properties,
+    ...(properties.item_id?{item_name:catalog.find(p=>p.id===properties.item_id)?.name,item_category:catalog.find(p=>p.id===properties.item_id)?.category}:{}),
     demo_session_id: demoSessionId,
     event_sequence: ++sequence,
     data_source: 'demo_store',
@@ -52,7 +54,7 @@ function track(event, properties = {}) {
   const row = document.createElement('li');
   row.textContent = event + ' · ' + JSON.stringify(data);
   eventLog.append(row);
-  if (!experiment.preview) {window.posthog?.capture(event, data);experiment.capture(event,data).catch(error=>showError(error.message));}
+  if (!experiment.preview) {window.fieldworkAnalyticsReady?.then(ready=>{if(ready)window.posthog.capture(event,data)});experiment.capture(event,data).catch(error=>showError(error.message));}
 }
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -71,7 +73,7 @@ function refreshCount() {
 }
 
 function show(title, markup) {
-  content.innerHTML = '<h2 id="panel-title" tabindex="-1">' + title + '</h2>' + markup;
+  content.innerHTML = '<h2 id="panel-title" tabindex="-1">' + escapeText(title) + '</h2>' + markup;
   if (!dialog.open) dialog.showModal();
   content.querySelector('h2').focus();
 }
@@ -90,16 +92,14 @@ function action(label, callback, className = 'action') {
 }
 
 function identifyShopper() {
-  if (shopper && !experiment.preview) window.posthog?.identify(shopper.id, {
-    name: shopper.name + ' (Demo)', is_demo: true, data_source: 'demo_store',
-  });
+  if (shopper && !experiment.preview){const user=shopper;window.fieldworkAnalyticsReady?.then(ready=>{if(ready)window.posthog.identify(user.id,{name:user.name+' (Demo)',is_demo:true,data_source:'demo_store'})});}
   document.querySelector('#account').textContent = shopper ? shopper.name + ' · Demo account' : 'Demo sign in';
 }
 
 async function changeShopper(next) {
   if(experiment.preview){showError('Preview only: sign-in, checkout and collection are disabled.');return;}
   if (shopper && backendReady) { await storeBackend.action('demo_signed_out'); track('demo_signed_out'); }
-  window.posthog?.reset();
+  if(await window.fieldworkAnalyticsReady)window.posthog.reset();
   shopper = undefined; backendReady = false;experiment.linked=false;
   bag.clear(); checkoutId = undefined; refreshCount(); identifyShopper();
   try { sessionStorage.removeItem('fieldwork-demo-shopper'); } catch {}
@@ -156,7 +156,7 @@ function showAccount() {
 async function showProduct(item) {
   if (shopper && backendReady) await record('view_item',{item_id:item.id});
   else track('view_item', {item_id:item.id,price:item.price,currency:'USD'});
-  show(item.name, '<p>' + item.description + '</p><p>' + dollars(item.price) + '</p>');
+  show(item.name, '<p>' + escapeText(item.description) + '</p><p>' + dollars(item.price) + '</p>');
   action('Add to bag', async () => {
     track('product_cta_clicked',{item_id:item.id,cta:'details_add'});
     if (!shopper || !backendReady) { showAccount(); return; }
@@ -222,7 +222,7 @@ const products = document.querySelector('#products');
 for (const item of catalog) {
   const card = document.createElement('article');
   card.className = 'card';
-  card.innerHTML = '<h3>' + item.name + '</h3><p>' + item.description + '</p><p class="price">' + dollars(item.price) + '</p>';
+  card.innerHTML = '<p class="product-category">'+escapeText(item.category)+'</p><h3>' + escapeText(item.name) + '</h3><p>' + escapeText(item.description) + '</p><p class="price">' + dollars(item.price) + '</p>';
   const button = document.createElement('button');
   button.textContent = experiment.variant === 'B' ? 'Add to bag · '+dollars(item.price) : 'View details';
   if(experiment.variant==='B'){button.className='quick-add';const note=document.createElement('p');note.className='purchase-note';note.textContent='Demo sign-in required · Simulated orders only';card.append(note);}
@@ -256,9 +256,10 @@ dialog.addEventListener('close', () => { checkoutId = undefined; });
  identifyShopper(); track('$pageview',{$current_url:location.origin+location.pathname});
 })();
 
-})().catch(error=>{const banner=document.createElement("div");banner.id="store-message";banner.setAttribute("role","alert");banner.textContent=error.message+" Reload after signing in to retry.";document.body.prepend(banner);});
-
 // Explicit human interaction collection; no automatic events are generated as visits.
 const recordedDepths=new Set();
 addEventListener('scroll',()=>{const scrollable=document.documentElement.scrollHeight-innerHeight;if(scrollable<=0)return;const depth=100*scrollY/scrollable;for(const milestone of [25,50,75,100])if(depth>=milestone&&!recordedDepths.has(milestone)){recordedDepths.add(milestone);track('scroll_depth',{depth_percent:milestone});}},{passive:true});
 document.addEventListener('click',event=>{const link=event.target.closest?.('a[href]');if(!link)return;try{const url=new URL(link.href);if(['https:','http:'].includes(url.protocol))track('link_clicked',{link_url:url.origin+url.pathname,link_domain:url.hostname,is_outbound:url.origin!==location.origin});}catch{}});
+
+})().catch(error=>{const banner=document.createElement("div");banner.id="store-message";banner.setAttribute("role","alert");banner.textContent=error.message+" Reload after signing in to retry.";document.body.prepend(banner);});
+

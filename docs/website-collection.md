@@ -17,3 +17,9 @@ PostHog browser events include anonymous visitors, pageviews, scrolls and clicks
 ## Generated traffic stopped
 
 The owner stopped the earlier generation request after 2,000 fictional shoppers had completed 4,000 application sessions. Those records remain isolated in `fieldwork_flow_v1`, absent from the website selector and website traffic queries. Remaining outbox delivery is explicitly suppressed; already captured generated events retain their separate dataset rather than being renamed into genuine traffic. No generator or recurring simulation remains running.
+
+## Live browser verification and expanded catalog
+
+The store now has 12 active products, supplied by the `fw_catalog` server query instead of a hardcoded browser list. Prices remain database-authoritative. Purchase events include product IDs, names, categories, quantities, USD purchase-time prices and line revenue, allowing independent product-revenue queries in both sources.
+
+Browser capture configuration is loaded from the deployed `/api/store/analytics-config` endpoint, which returns only the public capture token and ingest host. The ignored local `analytics-config.js` file is no longer a deployment dependency. SDK initialization is awaited/queued so missing capture methods cannot break sign-in or checkout. The automated visit workflow operates the published site through its actual UI; it does not insert visit rows or upload spreadsheet data. Browser/operator visits are not evidence of real-customer demand.
