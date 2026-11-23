@@ -14,7 +14,7 @@ pipeline, and API integrations are real.
 | Area | Implemented and verified | Still pending |
 | --- | --- | --- |
 | Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Verify checkout again in the hosted signed-in session. |
-| Supabase | Dedicated development project provisioned; 11 protected tables, six demo shoppers, two products. Transaction and authorization tests pass. | Run the 2,000-shopper application-flow simulation. |
+| Supabase | Dedicated development project provisioned; 15 protected tables, six demo shoppers, two products. Transaction and authorization tests pass. | Run the 2,000-shopper application-flow simulation. |
 | Analytics UI | Separate dashboard, chat, evidence drawer, and experiment workspace. Supabase and PostHog source selection executes fresh queries and compares the results. | OpenAI generation needs credits. |
 | OpenAI agent | Responses API tool loop implemented. Secure project key provisioned; model access check succeeded. | Live generation test returned `credit_balance_exhausted`; add API credits before the demo. |
 | PostHog | Server-only query key configured. Fresh queries independently reproduce the persisted experiment metrics; transactional outboxes deliver commerce and experiment events. | No scheduled retry worker; delivery lag is shown as a comparison difference. |

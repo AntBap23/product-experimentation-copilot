@@ -81,6 +81,9 @@ declare a public.fw_experiment_assignments; existing public.fw_experiment_events
  insert into public.fw_experiment_events values(p_request,a.experiment_id,a.dataset_id,p_unit,p_event,clock_timestamp(),props,null);
  return jsonb_build_object('event_id',p_request,'variant',a.variant);
 end $$;
+create function public.fw_experiment_event_id(p_id uuid) returns uuid language sql immutable security invoker set search_path='' as $$
+ select (substr(h,1,8)||'-'||substr(h,9,4)||'-4'||substr(h,14,3)||'-a'||substr(h,18,3)||'-'||substr(h,21,12))::uuid from (select md5('fw_quick_add_v1:'||p_id::text) h) digest;
+$$;
 create function public.fw_experiment_commerce() returns trigger language plpgsql security invoker set search_path='' as $$
 declare a public.fw_experiment_assignments; props jsonb; oid uuid; begin
  if new.event not in ('view_item','add_to_cart','remove_from_cart','begin_checkout','return_to_cart','add_payment_info','purchase','payment_error') then return new; end if;
@@ -89,8 +92,8 @@ declare a public.fw_experiment_assignments; props jsonb; oid uuid; begin
  if new.event='purchase' then
  select id into strict oid from public.fw_orders where id=(new.properties->>'transaction_id')::uuid and session_id=new.session_id and user_id=new.user_id;
  end if;
- props:=new.properties||jsonb_build_object('dataset_id',a.dataset_id,'experiment_id',a.experiment_id,'variant',a.variant,'experiment_unit_id',a.unit_id,'allocation_unit','visitor','device',a.device,'$device_type',a.device,'acquisition_channel',a.channel,'data_source','experiment_backend');
- insert into public.fw_experiment_events values(new.id,a.experiment_id,a.dataset_id,a.unit_id,new.event,new.occurred_at,props,oid);
+ props:=new.properties||jsonb_build_object('dataset_id',a.dataset_id,'experiment_id',a.experiment_id,'variant',a.variant,'experiment_unit_id',a.unit_id,'allocation_unit','visitor','device',a.device,'$device_type',a.device,'acquisition_channel',a.channel,'data_source','experiment_backend','commerce_event_id',new.id);
+ insert into public.fw_experiment_events values(public.fw_experiment_event_id(new.id),a.experiment_id,a.dataset_id,a.unit_id,new.event,new.occurred_at,props,oid);
  return new;
 end $$;
 create trigger fw_order_experiment_event after insert on public.fw_events for each row execute function public.fw_experiment_commerce();
