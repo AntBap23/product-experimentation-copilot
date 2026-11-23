@@ -26,6 +26,10 @@ The experiment view executes live queries against either source. The scripted
 2,000-visitor fixture and live demo interactions are kept in separate datasets.
 OpenAI credits are configured. The captioned walkthrough uses actual tool-backed model responses; see [demo recording and readout instructions](docs/demo/README.md).
 
+## Ask in ordinary language
+
+Questions such as “what products do users like most” are interpreted into measurable behavior. The agent states its assumption, compares product views and cart users, and adds persisted purchase evidence where supported. Imported event-only data supports product-interest analysis too. It asks a targeted follow-up only when a meaningful ambiguity has no reasonable default, and never silently changes the selected dataset. See [intent handling, capabilities and live checks](docs/agent-intent.md).
+
 ## Editable experiment readouts
 
 In **Experiments**, ask an investigation question and choose **Create readout**. Review the narrative, add a reviewer and follow-up owner, and record a human decision. **Download editable PowerPoint** exports native editable text, tables and charts alongside control/variant screenshots and complete query evidence in speaker notes. **Download evidence JSON** preserves the pinned source snapshot. Drafts save in the current browser and remain unchanged when analytics refreshes. The synthetic fixture never constitutes evidence of real business lift.
