@@ -15,15 +15,16 @@ pipeline, and API integrations are real.
 | --- | --- | --- |
 | Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Verify checkout again in the hosted signed-in session. |
 | Supabase | Dedicated development project provisioned; 11 protected tables, six demo shoppers, two products. Transaction and authorization tests pass. | Run the 2,000-shopper application-flow simulation. |
-| Analytics UI | Separate dashboard, chat, evidence drawer, and experiment workspace published privately. Hosted Supabase/session/OpenAI secrets are configured. | Verify hosted source reads; OpenAI generation needs credits. |
+| Analytics UI | Separate dashboard, chat, evidence drawer, and experiment workspace. Supabase and PostHog source selection executes fresh queries and compares the results. | OpenAI generation needs credits. |
 | OpenAI agent | Responses API tool loop implemented. Secure project key provisioned; model access check succeeded. | Live generation test returned `credit_balance_exhausted`; add API credits before the demo. |
-| PostHog | Transactional outbox plus browser collection. MCP independently verified all 9,126 experiment fixture events and 2,000 visitors. | Add a read-only personal API key for queries from the deployed analytics app. |
-| Experiments | Custom-coded quick-add A/B test, stable visitor assignment, actual screenshots, synthetic results, funnels, segments, and a read-only experiment evidence tool. | A separately planned real-traffic test and native PostHog flag integration. |
+| PostHog | Server-only query key configured. Fresh queries independently reproduce the persisted experiment metrics; transactional outboxes deliver commerce and experiment events. | No scheduled retry worker; delivery lag is shown as a comparison difference. |
+| Experiments | Supabase-persisted assignments, exposures and session/order attribution. Live source queries, synthetic/live cohort selection, comparison, methods and screenshots. | A separately planned real-customer test and native PostHog flag integration. |
 
 Preview the [analytics workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site)
 and the [existing storefront](https://fieldwork-checkout-lab.bapnocap.chatgpt.site).
-The experiment view works from a clearly labeled bundled synthetic aggregate.
-PostHog query access from the hosted app and live OpenAI generation remain pending.
+The experiment view executes live queries against either source. The scripted
+2,000-visitor fixture and live demo interactions are kept in separate datasets.
+Live OpenAI generation remains pending API credits.
 
 ## How the system works
 
@@ -220,4 +221,10 @@ The Experiments workspace compares the original product cards with direct Add to
 - [Open experiment workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site/?view=experiments)
 - [Preview control](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=A) · [Preview treatment](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=B)
 
-PostHog MCP verified all 9,126 unique synthetic event records and the exact per-variant counts. The frontend intentionally displays a bundled reproducible aggregate; it does not represent this as a live PostHog query. This is a custom-coded A/B experiment, not a native PostHog feature flag. Preview overrides are excluded from analytics and checkout writes.
+PostHog MCP verified all 9,126 unique synthetic event records and the exact per-variant counts. The frontend now executes fresh Supabase and PostHog queries, exposes the evidence and query time, and checks aggregate parity across both sources. No bundled result is used as fallback. This is a custom-coded A/B experiment, not a native PostHog feature flag. Preview overrides are excluded from analytics and checkout writes.
+
+### Query-backed experiment data
+
+The synthetic fixture is now persisted in Supabase as well as PostHog. Select **Query source** to reproduce results from either system, and **Traffic cohort** to inspect newly collected demo-store interactions. Visitor assignments, exposures and session links persist in Supabase; a trigger attributes commerce outcomes using verified order IDs and server prices. Browser event capture cannot forge purchases.
+
+For a fresh database, apply `database/schema.sql` followed by `database/experiments.sql`. To backfill the existing synthetic fixture, run `node scripts/import_experiment_database.mjs` after generating it. The import is UUID-idempotent and does not create commerce orders. The root generator no longer creates a production-bundled result artifact. See the [experiment guide](docs/experiments/quick-add.md), [Supabase audit SQL](sql/experiment_audit.sql), and [PostHog query](sql/posthog_experiment.sql).

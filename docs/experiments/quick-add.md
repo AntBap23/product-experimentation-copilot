@@ -1,61 +1,81 @@
-# Quick add on product cards — FW–001
+# Quick add — live experiment queries
 
-This is a custom-coded storefront experiment and a reproducible synthetic demonstration, not a native PostHog feature-flag experiment. The generated effect is deliberately planted; it cannot justify shipping the treatment.
+The experiment workspace now queries Supabase or PostHog on every refresh. It does not load bundled result JSON. Select the source and cohort at the top of the screen; inspect query text, returned aggregates, timestamps, and the independent comparison under **Method & evidence**.
 
-## Hypothesis and change
+## What changed on the store
 
-A direct Add to bag button on collection cards may reduce friction for signed-in demo shoppers and increase completed purchases. Control A opens product details before adding. Treatment B adds from the card and makes the demo sign-in requirement visible. Guests must still select a fictional account; treatment does not bypass sign-in, change prices, or take payment.
+Control A opens product details before Add to bag. Treatment B has a direct Add to bag button on the product card and explains the fictional-account requirement. Prices and payment behavior are unchanged. This is a custom-coded experiment, not a native PostHog feature flag.
 
-| Control A | Treatment B |
+| A | B |
 |---|---|
-| ![Control product cards](screenshots/products-A.png) | ![Treatment product cards](screenshots/products-B.png) |
+| ![Control](screenshots/products-A.png) | ![Treatment](screenshots/products-B.png) |
 
-[Full control](screenshots/store-A.png) · [Full treatment](screenshots/store-B.png) · [Mobile treatment](screenshots/store-B-mobile.png)
+## Two separate cohorts
 
-## Demo evidence
+| Dataset | Origin | Storage | Interpretation |
+|---|---|---|---|
+| `fieldwork_experiment_2000_v1` | 2,000 fictional visitors, 9,126 scripted events | Identical event UUIDs and properties in Supabase and PostHog | Deliberately planted effect; not real business lift |
+| `fieldwork_experiment_live_v1` | Actual interactions with the demo store after this upgrade | Persisted assignments, exposures, session links and attributed commerce events; delivered to PostHog through an outbox | Live interaction data, fictional accounts and simulated payment |
 
-Dataset: `fieldwork_experiment_2000_v1`. Fixed window: November 9, 2026 00:00 UTC through November 23, 2026 00:00 UTC, exclusive. Seed: 20261122. One visit per fictional visitor. Allocation uses a deterministic visitor hash, intended 50/50, not forced equal counts.
+The synthetic fixture is event-only. Its 325 purchases were **not** inserted into the commerce orders table. The new live-demo purchase events reference actual `fw_orders` records, with totals computed by the database.
 
-| Variant | Exposed visitors | Purchases | Purchase rate | Simulated revenue |
-|---|---:|---:|---:|---:|
-| A | 946 | 118 | 12.47% | $7,000 |
-| B | 1,054 | 207 | 19.64% | $11,732 |
+Historical traffic predating assignment persistence is not retroactively attributed.
 
-Difference: +7.17 percentage points, +57.45% relative. Illustrative unpooled normal 95% difference interval: +3.97 to +10.36 pp. Independent visitor, fixed-horizon assumptions; no sequential or multiplicity adjustment. The sample-ratio diagnostic uses a predeclared 0.001 threshold (chi-square > 10.82 for one degree of freedom); observed chi-square is 5.832. This demo is not a power or sample-size plan for real traffic.
+## Live data path
 
-The 9,126 event records were accepted by PostHog and independently queried through its MCP connection. Stored unique UUID counts match exactly: A 4,035 events / 946 exposures / 118 purchases; B 5,091 / 1,054 / 207. These are scripted records, not 2,000 browser sessions, Supabase order rows, replay recordings, or real customers. Re-running upload resumes by deterministic UUID and a local checkpoint.
+1. The browser keeps a visitor UUID in localStorage. Before rendering the product cards, the server asks Supabase to create or return its immutable assignment. PostgreSQL and JavaScript use the same deterministic 50/50 hash.
+2. The browser reports the first visible catalog exposure and non-commerce engagement through a server endpoint. Supabase deduplicates exposure for that visitor. Preview overrides make no assignment, event or checkout requests.
+3. Demo sign-in links the commerce session to that existing assignment. Switching fictional accounts does not change the visitor variant. A session cannot be reassigned to a different visitor.
+4. A database trigger copies signed-in commerce events into the experiment stream in the same transaction. Purchase attribution requires an existing order owned by that session/user. Browser capture endpoints cannot submit purchases, revenue, or cart/checkout outcomes.
+5. A transactional experiment outbox delivers the same event IDs to PostHog using `experiment_backend` as the source. Failed delivery stays pending; later requests or the explicit retry endpoint retry it. No scheduled worker is claimed.
+6. The analytics app queries `/api/experiments`. It executes a Supabase RPC and bounded PostHog queries, returning the selected result plus an independent aggregate comparison. No provider error falls back to a fixture or fabricated zero metrics.
 
-[Analytics results screenshot](screenshots/analytics-results.png) · [Change comparison](screenshots/analytics-changes.png) · [Web and product analytics](screenshots/analytics-funnel.png) · [Mobile results](screenshots/analytics-mobile.png)
+## Reproduce in Supabase
 
-## Metrics and attribution
+Run as an authorized database owner in the SQL editor:
 
-- Primary: unique exposed visitors with purchase after first exposure / unique exposed visitors, inside the fixed horizon.
-- Product: product engagement, any shopping CTA engagement, cart additions, checkouts, purchase funnel, simulated gross revenue.
-- Web: device and acquisition-channel segments; custom no-product-engagement proportion. This is not PostHog native session bounce rate.
-- Guardrail: visitors with payment_error / visitors starting checkout. Errors are synthetic. Performance, latency, retention, repeat visits, refunds, and real payment reliability were not measured.
-- Segments are exploratory and not separately powered; no multiple-comparison correction.
-
-## Live implementation
-
-The browser stores an anonymous experiment visitor UUID in localStorage and assigns a stable A/B variant. Assignment stays the same when selecting a demo account. Clearing storage or using another browser/device creates a new unit; no cross-device identity resolution is claimed. If storage is unavailable the assignment lasts only for the page load.
-
-`experiment_exposure` fires when the product catalog is at least 25% visible, not on assignment alone. Browser events include `experiment_id=fw_quick_add_v1`, `variant`, `experiment_unit_id`, and `allocation_unit=visitor`. Live demo traffic remains in `fieldwork_live_v2`; synthetic data never uses that dataset. Analyze live experiments by `experiment_unit_id`, not the six shared demo-account person IDs. Browser purchase is emitted after a backend order succeeds and includes the order transaction ID; canonical backend order events are a separate source. Do not sum them. The database does not store experiment assignments: variant-level database revenue requires an explicit transaction-ID join to the tagged browser event, not a nonexistent experiment column.
-
-`?experiment_preview=A` or `B` displays a labeled preview. Those overrides do not send captures, identify people, sign in fictional accounts, or write checkout data. Actual Chrome network checks found zero capture requests and zero backend mutations across both previews; mobile overflow check passed.
-
-## Reproduce
-
-```sh
-npm run experiment:generate
-npm test
-python3 scripts/upload_experiment.py  # explicitly sends synthetic events to configured PostHog
-npm run configure
+```sql
+select public.fw_experiment_analytics(
+  'fieldwork_experiment_2000_v1',
+  '2026-11-09T00:00:00Z',
+  '2026-11-23T00:00:00Z'
+);
 ```
 
-Raw events and upload checkpoints are in ignored `data/fieldwork_experiment_2000_v1/`. The public aggregate is `sites/fieldwork-agent/public/experiment-demo.json`, and the server tool uses the matching generated `platform/experiment-data.mjs`. Generated summaries are bundled evidence, not live PostHog queries. The read-only `experiment` tool enforces this exact dataset and horizon; the model cannot change them or write data. OpenAI billing is still needed for model-generated investigation. Guided analysis works without model credentials.
+For live demo interactions, use `fieldwork_experiment_live_v1` and a UTC date window covering the visits. The end is exclusive. [Audit queries](../../sql/experiment_audit.sql) inspect immutable assignments, exposure deduplication, purchase/order linkage, and delivery state.
 
-## Validation
+New server-only tables: `fw_experiment_assignments`, `fw_experiment_sessions`, `fw_experiment_events`, and `fw_experiment_outbox`. RLS is enabled, browser roles have no direct grants, and RPCs use `security invoker` with an empty search path. Apply `database/schema.sql` first and then `database/experiments.sql` for a fresh manual setup. The CLI-created additive migration is in `supabase/migrations/20261123054707_live_experiment_queries.sql`; the hosted schema was iterated through explicit SQL rather than pretending migration history exists.
 
-Ten automated tests cover database ownership/idempotency, cookie signatures, model tool restrictions, visitor assignment parity, pre-exposure exclusion, event deduplication, variant contamination, and experiment horizon bounds. Both apps pass TypeScript checks. Actual browser screenshots cover desktop and mobile, all experiment tabs, channel selection, and both storefront CTA paths. Preview traffic is excluded from collection. The private Sites audience is preserved.
+## Reproduce in PostHog
 
-Both updated Sites were published privately with runtime secret revision 1. Local real-browser control checkout saved order `47ca4670-4eac-4dce-b161-b132734dc7d7` ($84), and treatment saved `17b7af90-3033-4bb6-983d-4e569dea6e78` ($28). These two QA orders are separate from the 2,000-visitor scripted experiment fixture. Native deployment success is verified; repeating checkout in the hosted signed-in session is a separate check.
+[SQL for the synthetic variant totals](../../sql/posthog_experiment.sql) is the same source query used by the server. For live data, change the dataset and UTC bounds. PostHog queries filter `experiment_id=fw_quick_add_v1` and authoritative sources `experiment_synthetic_seed` / `experiment_backend`, so the separate browser and canonical commerce streams are not double-counted.
+
+The unit is `experiment_unit_id`, **not** the six shared demo-account person IDs. Queries join each visitor's first exposure to later outcomes, then aggregate per visitor and segment. Queries run sequentially to respect provider concurrent-query limits. A missing key, rejected query, incomplete response, or truncated response is visible as unavailable; it is not a successful empty result.
+
+## Metric definitions
+
+- Primary: exposed visitors with at least one subsequent purchase / exposed visitors.
+- Product: product engagement, shopping CTA engagement, added-to-cart and checkout visitors, simulated gross revenue.
+- Web: device/channel segments and custom no-product-engagement proportion. That proportion is not native PostHog session bounce rate.
+- Guardrail: visitors with a payment error / visitors reaching checkout.
+- Exposure cohorts are selected by **first exposure** in the query window. Later outcomes are included only before its exclusive end. Repeated purchases contribute revenue but count once for visitor conversion.
+- Assignment is browser/visitor level. Clearing storage or using another device creates a new unit. No cross-device person attribution is claimed.
+- The normal 95% difference interval is suppressed for sparse samples. It assumes independent visitors, and has no sequential or multiple-comparison adjustment. Live exploratory views are not a preregistered shipping test.
+- Comparison checks raw event counts and all displayed metric/segment aggregates. Matching totals are aggregate parity, not a full event-by-event audit. Delivery lag can temporarily produce differences.
+
+## Verification
+
+Fresh queries from both sources reproduce A: 946 visitors, 118 purchases, $7,000; B: 1,054 visitors, 207 purchases, $11,732. Synthetic comparison reports no aggregate differences.
+
+Real local-browser checkouts after the persistence upgrade produced:
+
+| Variant | Visitor | Database order | Amount |
+|---|---|---|---:|
+| A | `c312e961-dbbf-4478-a9a9-1e97ccfc287a` | `1499ab42-fca2-4712-861f-b5b5a3e4c0c6` | $84 |
+| B | `21ec063b-d43d-465a-b81f-0d25d938dcf2` | `6f638103-3516-4d83-9ba9-70d109fae05a` | $28 |
+
+Each retains exactly one exposure after reload. The live stream contains 23 events from these QA journeys; both sources return the same two visitor conversions and revenue. The sample is intentionally too small for an interval or a shipping recommendation.
+
+Actual Chrome checks cover source switching, synthetic/live cohorts, channel segmentation, sparse states, no bundled-data requests, stable assignment after reload, both checkout paths, preview exclusion, and mobile overflow. Twelve automated tests cover transactional ownership/idempotency, signed cookies, restricted model tools, import deduplication, immutable attribution, browser purchase rejection, role isolation, and source mismatch detection. All credentials remain server-only. Live OpenAI generation still needs billing credits; query/refresh does not call the model.
+
+[Supabase query screenshot](screenshots/live-supabase.png) · [PostHog query screenshot](screenshots/live-posthog.png) · [Live demo cohort](screenshots/live-demo.png) · [Mobile](screenshots/live-mobile.png)

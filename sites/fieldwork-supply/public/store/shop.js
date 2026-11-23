@@ -1,3 +1,5 @@
+(async()=>{
+await window.fieldworkExperiment.ready;
 const catalog = [
   { id: 'ridge-22', name: 'Ridge Daypack', price: 84, description: 'A lightweight 22 L pack with easy-access side pockets.' },
   { id: 'summit-750', name: 'Summit Bottle', price: 28, description: 'A 750 mL insulated bottle for full days outside.' },
@@ -47,7 +49,7 @@ function track(event, properties = {}) {
   const row = document.createElement('li');
   row.textContent = event + ' · ' + JSON.stringify(data);
   eventLog.append(row);
-  if (!experiment.preview) window.posthog?.capture(event, data);
+  if (!experiment.preview) {window.posthog?.capture(event, data);experiment.capture(event,data).catch(error=>showError(error.message));}
 }
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -95,7 +97,7 @@ async function changeShopper(next) {
   if(experiment.preview){showError('Preview only: sign-in, checkout and collection are disabled.');return;}
   if (shopper && backendReady) { await storeBackend.action('demo_signed_out'); track('demo_signed_out'); }
   window.posthog?.reset();
-  shopper = undefined; backendReady = false;
+  shopper = undefined; backendReady = false;experiment.linked=false;
   bag.clear(); checkoutId = undefined; refreshCount(); identifyShopper();
   try { sessionStorage.removeItem('fieldwork-demo-shopper'); } catch {}
   let server;
@@ -123,6 +125,7 @@ function showError(message) {
 }
 async function syncBag() {
   const result=await storeBackend.cart();
+  if(!experiment.preview&&!experiment.linked){await storeBackend.request('experiment/link',{unit:experiment.visitor});experiment.linked=true;}
   bag.clear(); for (const item of result.items) bag.set(item.item_id,item.quantity);
   refreshCount(); return result;
 }
@@ -249,3 +252,5 @@ dialog.addEventListener('close', () => { checkoutId = undefined; });
  catch(error){shopper=undefined;backendReady=false;if(!error.message.includes('Choose a demo shopper'))showError(error.message);}
  identifyShopper(); track('$pageview',{$current_url:location.origin+location.pathname});
 })();
+
+})().catch(error=>{const banner=document.createElement("div");banner.id="store-message";banner.setAttribute("role","alert");banner.textContent=error.message+" Reload after signing in to retry.";document.body.prepend(banner);});

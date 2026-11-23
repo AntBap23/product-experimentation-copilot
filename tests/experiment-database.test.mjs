@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {PGlite} from '@electric-sql/pglite';
+import {readFileSync} from 'node:fs';
+import {assign} from '../platform/experiment.mjs';
+import {experimentSummary} from '../platform/experiment-live.mjs';
+test('persisted assignment, exposure deduplication, purchase trust and experiment isolation',async()=>{
+ const db=new PGlite();await db.exec('create role anon;create role authenticated;create role service_role bypassrls;');await db.exec(readFileSync(new URL('../database/schema.sql',import.meta.url),'utf8'));await db.exec(readFileSync(new URL('../database/experiments.sql',import.meta.url),'utf8'));
+ const unit=crypto.randomUUID(),unit2=crypto.randomUUID(),session=crypto.randomUUID(),user='fieldwork-demo-alex';
+ const call=async(name,args)=>Object.values((await db.query(`select ${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) as result`,args)).rows[0])[0];
+ const a=await call('fw_experiment_assign',[unit,'Mobile','email']);assert.equal(a.variant,assign(unit));assert.deepEqual(await call('fw_experiment_assign',[unit,'Desktop','social']),a);
+ const request=crypto.randomUUID();const exposure=await call('fw_experiment_capture',[unit,'experiment_exposure',request,'{}']);assert.equal((await call('fw_experiment_capture',[unit,'experiment_exposure',crypto.randomUUID(),'{}'])).event_id,exposure.event_id);
+ await assert.rejects(call('fw_experiment_capture',[unit,'purchase',crypto.randomUUID(),JSON.stringify({value:999999})]));
+ await assert.rejects(call('fw_experiment_capture',[unit,'view_item',request,'{}']));
+ const at=new Date(Date.now()+1000).toISOString();await call('fw_login',[user,session,'Desktop','organic','fieldwork_live_v2','Alex',new Date().toISOString()]);await call('fw_experiment_link',[user,session,unit]);await call('fw_experiment_assign',[unit2,'Desktop','organic']);await assert.rejects(call('fw_experiment_link',[user,session,unit2]));await assert.rejects(call('fw_experiment_link',['fieldwork-demo-jordan',session,unit]));
+ const action=(name,data={})=>call('fw_store_action',[user,session,name,JSON.stringify(data),crypto.randomUUID(),at]);
+ await action('add_to_cart',{item_id:'ridge-22',quantity:1});const checkout=await action('begin_checkout');await action('add_payment_info',{checkout_id:checkout.checkout_id});const order=await action('purchase',{checkout_id:checkout.checkout_id});
+ const linked=(await db.query("select * from fw_experiment_events where event='purchase'")).rows[0];assert.equal(linked.order_id,order.order_id);assert.equal(linked.properties.value,84);assert.equal(linked.properties.variant,a.variant);assert.equal(linked.properties.device,'Mobile');
+ const args={dataset:'fieldwork_experiment_live_v1',start:new Date().toISOString().slice(0,10),end:new Date(Date.now()+86400000).toISOString().slice(0,10)};const raw=await call('fw_experiment_analytics',[args.dataset,args.start,args.end]);const summary=experimentSummary(raw,args);assert.equal(summary.users,1);assert.equal(summary.variants.find(v=>v.variant===a.variant).purchases,1);assert.equal(summary.variants.find(v=>v.variant===a.variant).revenue,84);assert.equal(summary.effect.ci95_pp,null);
+ const imported={uuid:crypto.randomUUID(),distinct_id:'fw-experiment-v1-0001',event:'experiment_exposure',timestamp:'2026-11-10T12:00:00Z',properties:{dataset_id:'fieldwork_experiment_2000_v1',experiment_id:'fw_quick_add_v1',experiment_unit_id:'fw-experiment-v1-0001',variant:assign('fw-experiment-v1-0001'),device:'Mobile',acquisition_channel:'organic',is_synthetic:true,data_source:'experiment_synthetic_seed'}};
+ assert.equal((await call('fw_import_experiment',[JSON.stringify([imported])])).inserted,1);assert.equal((await call('fw_import_experiment',[JSON.stringify([imported])])).inserted,0);await assert.rejects(call('fw_import_experiment',[JSON.stringify([{...imported,properties:{...imported.properties,variant:imported.properties.variant==='A'?'B':'A'}}])]));
+ const records=(await db.query('select * from fw_claim_experiment_events(100)')).rows;assert.ok(records.length>=5);assert.ok(records.every(e=>e.properties.dataset_id==='fieldwork_experiment_live_v1'));await call('fw_ack_experiment_events',[records.map(e=>e.id),true,null]);
+ await db.exec('set role anon');await assert.rejects(db.query('select * from fw_experiment_assignments'));await assert.rejects(call('fw_experiment_analytics',[args.dataset,args.start,args.end]));await db.exec('reset role');await db.close();
+});
