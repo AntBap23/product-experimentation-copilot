@@ -57,3 +57,5 @@ Raw events and upload checkpoints are in ignored `data/fieldwork_experiment_2000
 ## Validation
 
 Ten automated tests cover database ownership/idempotency, cookie signatures, model tool restrictions, visitor assignment parity, pre-exposure exclusion, event deduplication, variant contamination, and experiment horizon bounds. Both apps pass TypeScript checks. Actual browser screenshots cover desktop and mobile, all experiment tabs, channel selection, and both storefront CTA paths. Preview traffic is excluded from collection. The private Sites audience is preserved.
+
+Both updated Sites were published privately with runtime secret revision 1. Local real-browser control checkout saved order `47ca4670-4eac-4dce-b161-b132734dc7d7` ($84), and treatment saved `17b7af90-3033-4bb6-983d-4e569dea6e78` ($28). These two QA orders are separate from the 2,000-visitor scripted experiment fixture. Native deployment success is verified; repeating checkout in the hosted signed-in session is a separate check.

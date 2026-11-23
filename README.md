@@ -13,16 +13,17 @@ pipeline, and API integrations are real.
 
 | Area | Implemented and verified | Still pending |
 | --- | --- | --- |
-| Storefront | Existing hosted shop captures browser events. New backend builds; a simulated $28 checkout saved a real Supabase order and its matching event was accepted by PostHog. | Publish and verify the new database-backed storefront end to end. |
+| Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Verify checkout again in the hosted signed-in session. |
 | Supabase | Dedicated development project provisioned; 11 protected tables, six demo shoppers, two products. Transaction and authorization tests pass. | Run the 2,000-shopper application-flow simulation. |
-| Analytics UI | Separate dashboard, chat, connection states, and query evidence drawer. Published privately in setup mode. | Configure hosted runtime credentials and verify live source reads. |
+| Analytics UI | Separate dashboard, chat, evidence drawer, and experiment workspace published privately. Hosted Supabase/session/OpenAI secrets are configured. | Verify hosted source reads; OpenAI generation needs credits. |
 | OpenAI agent | Responses API tool loop implemented. Secure project key provisioned; model access check succeeded. | Live generation test returned `credit_balance_exhausted`; add API credits before the demo. |
-| PostHog | Browser collection verified separately from the earlier bulk import. Transactional outbox sends canonical backend events. | Add a read-only personal API key for queries from the deployed analytics app. |
+| PostHog | Transactional outbox plus browser collection. MCP independently verified all 9,126 experiment fixture events and 2,000 visitors. | Add a read-only personal API key for queries from the deployed analytics app. |
+| Experiments | Custom-coded quick-add A/B test, stable visitor assignment, actual screenshots, synthetic results, funnels, segments, and a read-only experiment evidence tool. | A separately planned real-traffic test and native PostHog flag integration. |
 
 Preview the [analytics workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site)
 and the [existing storefront](https://fieldwork-checkout-lab.bapnocap.chatgpt.site).
-The analytics preview currently shows setup/connection states; it must not be
-presented as a fully connected production deployment.
+The experiment view works from a clearly labeled bundled synthetic aggregate.
+PostHog query access from the hosted app and live OpenAI generation remain pending.
 
 ## How the system works
 
@@ -50,8 +51,8 @@ behavioral stream. Reconciliation compares the identifiers; it does not add both
 streams together as separate orders.
 
 The agent cannot execute arbitrary SQL or write commerce data. It can select
-approved tools for overview, device funnel, daily orders, products, channels and
-order reconciliation. Each result includes its source, dataset, date boundaries,
+approved tools for overview, device funnel, daily orders, products, channels,
+order reconciliation, and synthetic experiment evidence. Each result includes its source, dataset, date boundaries,
 query or RPC, returned data, and execution time. OpenAI chooses tools and explains
 returned evidence; SQL and code calculate the metrics.
 
@@ -205,11 +206,11 @@ and the [earlier synthetic fixture audit](docs/synthetic_dataset.md).
 - Capture acceptance is not proof of stored/queryable events; reconcile against PostHog records.
 - Reconciliation is limited to the latest 500 orders from each source and labels that scope.
 - Date windows use UTC and an exclusive end. Funnels can truncate outcomes near the window end.
-- Findings are descriptive. Experiment execution, fixed-horizon inference and causal recommendations are not implemented in the new web agent.
+- The custom experiment includes illustrative fixed-horizon inference on a planted synthetic effect. It cannot establish real causal lift or justify a production rollout. Native PostHog flag orchestration is not implemented.
 - Persistent chat history and production customer authentication are future work.
 
-The next demonstration milestone is a hosted database-backed checkout, its
-matching stored PostHog event, and an OpenAI answer that cites both sources.
+The next verification milestone is a signed-in hosted checkout, its matching
+stored PostHog event, and an OpenAI answer citing both sources after credits are added.
 
 ## Product, web analytics, and experimentation demo
 
