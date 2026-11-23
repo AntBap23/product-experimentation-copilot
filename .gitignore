@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.streamlit/secrets.toml
+.env
+data/
+
+node_modules/
+.env*
+!.env.example
+.dev.vars*
+.wrangler/
+.sites-runtime/
+.next/
+.vinext/
+*.tsbuildinfo
+.DS_Store

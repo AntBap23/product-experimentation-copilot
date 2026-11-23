@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {PGlite} from '@electric-sql/pglite';
+const db=new PGlite();
+const session=crypto.randomUUID(),user='fieldwork-demo-alex';
+const at='2026-11-22T12:00:00Z';
+async function action(name,data={},id=crypto.randomUUID(),who=user){return (await db.query('select public.fw_store_action($1,$2,$3,$4,$5,$6) as result',[who,session,name,JSON.stringify(data),id,at])).rows[0].result;}
+
+test('Postgres transactions, ownership, idempotency and restricted RPCs',async()=>{
+ await db.exec('create role anon; create role authenticated; create role service_role bypassrls;');
+ await db.exec(readFileSync(new URL('../database/schema.sql',import.meta.url),'utf8'));
+ await db.query('select public.fw_login($1,$2,$3,$4,$5,$6,$7)',[user,session,'Mobile','email','fieldwork_live_v2','Alex',at]);
+ const request=crypto.randomUUID();const first=await action('add_to_cart',{item_id:'ridge-22',quantity:2},request);
+ assert.deepEqual(await action('add_to_cart',{item_id:'ridge-22',quantity:2},request),first);
+ await assert.rejects(action('add_to_cart',{item_id:'ridge-22',quantity:3},request));
+ await assert.rejects(action('view_item',{item_id:'ridge-22'},crypto.randomUUID(),'fieldwork-demo-jordan'));
+ const cart=(await db.query('select fw_cart($1,$2) as cart',[user,session])).rows[0].cart;assert.equal(cart[0].quantity,2);
+ const checkout=await action('begin_checkout',{value:1});assert.equal(checkout.properties.value,168);
+ await assert.rejects(action('purchase',{checkout_id:checkout.checkout_id}));
+ assert.equal((await db.query('select count(*)::int as n from fw_orders')).rows[0].n,0);
+ await action('add_payment_info',{checkout_id:checkout.checkout_id});
+ const purchaseRequest=crypto.randomUUID(),order=await action('purchase',{checkout_id:checkout.checkout_id},purchaseRequest);
+ assert.deepEqual(await action('purchase',{checkout_id:checkout.checkout_id},purchaseRequest),order);
+ await assert.rejects(action('purchase',{checkout_id:checkout.checkout_id}));
+ const totals=(await db.query('select o.total_cents,sum(i.quantity*i.unit_price_cents)::int as line_total from fw_orders o join fw_order_items i on i.order_id=o.id group by o.id')).rows[0];assert.equal(totals.total_cents,totals.line_total);assert.equal(totals.total_cents,16800);
+ const counts=(await db.query('select count(*)::int as n from fw_events where event=\'purchase\'')).rows[0];assert.equal(counts.n,1);
+ await action('add_to_cart',{item_id:'summit-750',quantity:1});
+ await action('begin_checkout');await action('return_to_cart');
+ assert.equal((await db.query('select fw_cart($1,$2) as cart',[user,session])).rows[0].cart[0].item_id,'summit-750');
+ const claims=await db.query('select * from fw_claim_events(100)');assert.ok(claims.rows.length>0);
+ assert.equal((await db.query('select * from fw_claim_events(100)')).rows.length,0);
+ await db.query('select fw_ack_events($1,true,null)',[claims.rows.map(e=>e.id)]);
+ assert.equal((await db.query("select count(*)::int as n from fw_event_outbox where state<>'sent'")).rows[0].n,0);
+ const overview=(await db.query('select fw_analytics($1,$2,$3,$4) as result',['overview','fieldwork_live_v2','2026-11-22','2026-11-23'])).rows[0].result;
+ assert.equal(overview.orders,1);assert.equal(overview.revenue_cents,16800);
+ await action('demo_signed_out');await assert.rejects(action('view_item',{item_id:'ridge-22'}));
+ await db.exec('set role anon');
+ await assert.rejects(db.query('select * from public.fw_orders'));
+ await assert.rejects(db.query('select public.fw_analytics($1,$2,$3,$4)',['overview','fieldwork_live_v2','2026-11-22','2026-11-23']));
+ await db.exec('reset role');await db.close();
+});
