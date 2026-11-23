@@ -63,11 +63,11 @@ export async function api(request,env,{user,app='analytics'}={}){
   }
   if(path==='/api/store/session'){
    if(!env.SESSION_SECRET||env.SESSION_SECRET.length<32)throw new HttpError(503,'Configure a server session secret before demo sign-in.');
-   const id=String(body.user||'');
-   if(!simulation&&!/^fieldwork-demo-(alex|jordan|morgan|riley|sam|taylor)$/.test(id))throw new HttpError(400,'Choose one of the six demo shoppers.');
+   const id=String(body.user||''),newVisitor=!simulation&&body.new_visitor===true;
+   if(!simulation&&!newVisitor&&!/^fieldwork-demo-(alex|jordan|morgan|riley|sam|taylor)$/.test(id))throw new HttpError(400,'Choose one of the six demo shoppers.');
    if(simulation&&!/^fieldwork-flow-v1-(\d{4})$/.test(id))throw new HttpError(400,'Invalid simulated shopper ID.');
-   const claims=await rpc(env,'fw_login',{p_user:id,p_session:simulation&&uuid(body.session_id)?body.session_id:crypto.randomUUID(),p_device:body.device==='Mobile'?'Mobile':'Desktop',p_channel:['organic','email','paid_search','social'].includes(body.channel)?body.channel:'organic',p_dataset:simulation?'fieldwork_flow_v1':'fieldwork_live_v2',p_name:'Simulated Shopper '+id.slice(-4),p_at:simulation?validSimulationTime(body.at):new Date().toISOString()});
-   if(!simulation&&body.experiment_unit_id){if(!uuid(body.experiment_unit_id))throw new HttpError(400,'Invalid experiment visitor.');await rpc(env,'fw_experiment_link',{p_user:id,p_session:claims.session_id,p_unit:body.experiment_unit_id});}
+   const claims=await rpc(env,newVisitor?'fw_browser_login':'fw_login',newVisitor?{p_device:body.device==='Mobile'?'Mobile':'Desktop',p_channel:['organic','email','paid_search','social'].includes(body.channel)?body.channel:'organic'}:{p_user:id,p_session:simulation&&uuid(body.session_id)?body.session_id:crypto.randomUUID(),p_device:body.device==='Mobile'?'Mobile':'Desktop',p_channel:['organic','email','paid_search','social'].includes(body.channel)?body.channel:'organic',p_dataset:simulation?'fieldwork_flow_v1':'fieldwork_live_v2',p_name:'Simulated Shopper '+id.slice(-4),p_at:simulation?validSimulationTime(body.at):new Date().toISOString()});
+   if(!simulation&&body.experiment_unit_id){if(!uuid(body.experiment_unit_id))throw new HttpError(400,'Invalid experiment visitor.');await rpc(env,'fw_experiment_link',{p_user:claims.user,p_session:claims.session_id,p_unit:body.experiment_unit_id});}
    const token=await signSession(claims,env.SESSION_SECRET);
    return respond({...claims,...(simulation?{token}:{})},200,{'Set-Cookie':cookie(token,url)});
   }

@@ -14,7 +14,7 @@ window.storeBackend = {
   if(!response.ok)throw Error(result.error||'The store backend is unavailable.');
   return result;
  },
- login(user){return this.request('session',{user,experiment_unit_id:window.fieldworkExperiment.visitor,device:matchMedia('(max-width:700px)').matches?'Mobile':'Desktop',channel:['organic','email','paid_search','social'].includes(window.fieldworkWebContext().utm_source)?window.fieldworkWebContext().utm_source:'organic'});},
+ login(user,newVisitor=false){return this.request('session',{user,new_visitor:newVisitor,experiment_unit_id:window.fieldworkExperiment.visitor,device:matchMedia('(max-width:700px)').matches?'Mobile':'Desktop',channel:['organic','email','paid_search','social'].includes(window.fieldworkWebContext().utm_source)?window.fieldworkWebContext().utm_source:'organic'});},
  async action(action,data={}){await window.fieldworkExperiment.pending;if(window.fieldworkExperiment.error)throw window.fieldworkExperiment.error;return this.request('action',{action,data:{...data,_web:window.fieldworkWebContext(action)},request_id:crypto.randomUUID()});},
  cart(){return this.request('cart');}
 };

@@ -105,7 +105,8 @@ async function changeShopper(next) {
   try { sessionStorage.removeItem('fieldwork-demo-shopper'); } catch {}
   let server;
   if(experiment.preview){showError('Preview only: open the store without experiment_preview to place a demo order.');return;}
-  if (next) server = await storeBackend.login(next.id);
+  if (next) server = await storeBackend.login(next.id,Boolean(next.new_visitor));
+  if(next?.new_visitor)next={id:server.user,name:server.name};
   shopper = next;
   backendReady = Boolean(next);
   try {
@@ -148,6 +149,7 @@ function showAccount() {
     content.append(label);
     action('Sign out', () => changeShopper(undefined));
   }
+  action('Start a new visitor',()=>changeShopper({new_visitor:true}),'secondary');
   for (const user of demoShoppers) {
     if (user.id !== shopper?.id) action('Sign in as ' + user.name, () => changeShopper(user), 'secondary');
   }
@@ -251,7 +253,7 @@ document.querySelector('#close').addEventListener('click', () => dialog.close())
 dialog.addEventListener('close', () => { checkoutId = undefined; });
 (async()=>{
  if(experiment.preview){identifyShopper();return;}
- try { const session=await syncBag(); shopper=demoShoppers.find(u=>u.id===session.shopper.user); backendReady=Boolean(shopper); if(shopper)await storeBackend.action('$pageview'); }
+ try { const session=await syncBag(); shopper=demoShoppers.find(u=>u.id===session.shopper.user)||(session.shopper.user.startsWith('fieldwork-browser-')?{id:session.shopper.user,name:session.shopper.name}:undefined); backendReady=Boolean(shopper); if(shopper)await storeBackend.action('$pageview'); }
  catch(error){shopper=undefined;backendReady=false;if(!error.message.includes('Choose a demo shopper'))showError(error.message);}
  identifyShopper(); track('$pageview',{$current_url:location.origin+location.pathname});
 })();
