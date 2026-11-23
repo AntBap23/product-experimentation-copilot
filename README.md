@@ -26,6 +26,10 @@ The experiment view executes live queries against either source. The scripted
 2,000-visitor fixture and live demo interactions are kept in separate datasets.
 OpenAI credits are configured. The captioned walkthrough uses actual tool-backed model responses; see [demo recording and readout instructions](docs/demo/README.md).
 
+## Revenue by product
+
+USD product revenue is queryable independently in Supabase and PostHog, for both persisted demo orders and the separately mirrored historical purchase fixture. The agent compares quantity × purchase-time price and formats integer cents as USD dollars. See [the revenue contract, migrations, backfill and verified totals](docs/product-revenue.md).
+
 ## Ask in ordinary language
 
 Questions such as “what products do users like most” are interpreted into measurable behavior. The agent states its assumption, compares product views and cart users, and adds persisted purchase evidence where supported. Imported event-only data supports product-interest analysis too. It asks a targeted follow-up only when a meaningful ambiguity has no reasonable default, and never silently changes the selected dataset. See [intent handling, capabilities and live checks](docs/agent-intent.md).

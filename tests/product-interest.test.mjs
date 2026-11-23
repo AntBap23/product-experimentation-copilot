@@ -9,7 +9,7 @@ test('event-only product interest preserves scope and distinguishes independent 
 });
 test('capabilities expose useful event-only tools and keep experiment/commerce scopes separate',()=>{
  const names=w=>availableTools(w).map(t=>t.function.name);
- assert.deepEqual(names(window),['overview','product_interest']);assert.ok(names({...window,dataset:'fieldwork_live_v2'}).includes('products'));assert.deepEqual(names({...window,dataset:'fieldwork_experiment_2000_v1'}),['experiment','experiment_posthog','experiment_reconcile']);
+ assert.deepEqual(names(window),['overview','product_revenue','product_revenue_posthog','product_interest']);assert.ok(names({...window,dataset:'fieldwork_live_v2'}).includes('products'));assert.deepEqual(names({...window,dataset:'fieldwork_experiment_2000_v1'}),['experiment','experiment_posthog','experiment_reconcile']);
 });
 test('an event-only question cannot execute an unsupported database-sales tool',async()=>{
  const original=globalThis.fetch;let n=0;const executed=[];

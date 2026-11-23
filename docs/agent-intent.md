@@ -8,7 +8,7 @@ The product-interest query is server-owned. It is bounded to the selected datase
 
 ## Dataset capabilities
 
-- Imported event-only fixture: overview and behavioral product interest.
+- Imported fixture: overview, behavioral product interest, and independent Supabase/PostHog purchase line-item revenue. Imported purchases remain separate from storefront orders.
 - Application-flow datasets: overview, product interest, persisted product sales, checkout funnel, daily orders, acquisition channels and order reconciliation.
 - Experiment cohorts: experiment metrics and independent PostHog/source-reconciliation tools.
 

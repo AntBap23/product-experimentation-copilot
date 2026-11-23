@@ -5,6 +5,6 @@ const config=source.split('\n').filter(line=>allowed.has(line.split('=')[0])).jo
 for(const site of ['fieldwork-supply','fieldwork-agent']){
  const selected=site==='fieldwork-supply'?config.split('\n').filter(line=>!['OPENAI_API_KEY','OPENAI_MODEL','MODEL_API_KEY','MODEL_NAME','MODEL_BASE_URL','POSTHOG_PERSONAL_API_KEY'].includes(line.split('=')[0])).join('\n'):config;
  writeFileSync(new URL(`../sites/${site}/.dev.vars`,import.meta.url),selected,{mode:0o600});
- for(const name of ['core.mjs','http.mjs','experiment.mjs','experiment-live.mjs'])copyFileSync(new URL('../platform/'+name,import.meta.url),new URL(`../sites/${site}/lib/platform/${name}`,import.meta.url));
+ for(const name of ['core.mjs','http.mjs','experiment.mjs','experiment-live.mjs','revenue.mjs'])copyFileSync(new URL('../platform/'+name,import.meta.url),new URL(`../sites/${site}/lib/platform/${name}`,import.meta.url));
 }
 console.log('Updated ignored runtime configuration and shared server modules. No secret values printed.');
