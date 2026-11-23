@@ -15,8 +15,8 @@ pipeline, and API integrations are real.
 | --- | --- | --- |
 | Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Verify checkout again in the hosted signed-in session. |
 | Supabase | Dedicated development project provisioned; 15 protected tables, six demo shoppers, two products. Transaction and authorization tests pass. | Run the 2,000-shopper application-flow simulation. |
-| Analytics UI | Separate dashboard, chat, evidence drawer, and experiment workspace. Supabase and PostHog source selection executes fresh queries and compares the results. | OpenAI generation needs credits. |
-| OpenAI agent | Responses API tool loop implemented. Secure project key provisioned; model access check succeeded. | Live generation test returned `credit_balance_exhausted`; add API credits before the demo. |
+| Analytics UI | Separate dashboard, chat, evidence drawer, experiment workspace and editable PowerPoint readout. Supabase and PostHog source selection executes fresh queries and compares the results. | Continue validation with planned real traffic. |
+| OpenAI agent | Funded Responses API tool-calling investigations return model explanations and inspectable evidence. The final bounded turn is reserved for an explanation. | Evaluate quality on more real analytics questions. |
 | PostHog | Server-only query key configured. Fresh queries independently reproduce the persisted experiment metrics; transactional outboxes deliver commerce and experiment events. | No scheduled retry worker; delivery lag is shown as a comparison difference. |
 | Experiments | Supabase-persisted assignments, exposures and session/order attribution. Live source queries, synthetic/live cohort selection, comparison, methods and screenshots. | A separately planned real-customer test and native PostHog flag integration. |
 
@@ -24,7 +24,11 @@ Preview the [analytics workspace](https://fieldwork-analytics-agent.bapnocap.cha
 and the [existing storefront](https://fieldwork-checkout-lab.bapnocap.chatgpt.site).
 The experiment view executes live queries against either source. The scripted
 2,000-visitor fixture and live demo interactions are kept in separate datasets.
-Live OpenAI generation remains pending API credits.
+OpenAI credits are configured. The captioned walkthrough uses actual tool-backed model responses; see [demo recording and readout instructions](docs/demo/README.md).
+
+## Editable experiment readouts
+
+In **Experiments**, ask an investigation question and choose **Create readout**. Review the narrative, add a reviewer and follow-up owner, and record a human decision. **Download editable PowerPoint** exports native editable text, tables and charts alongside control/variant screenshots and complete query evidence in speaker notes. **Download evidence JSON** preserves the pinned source snapshot. Drafts save in the current browser and remain unchanged when analytics refreshes. The synthetic fixture never constitutes evidence of real business lift.
 
 ## How the system works
 
@@ -211,7 +215,7 @@ and the [earlier synthetic fixture audit](docs/synthetic_dataset.md).
 - Persistent chat history and production customer authentication are future work.
 
 The next verification milestone is a signed-in hosted checkout, its matching
-stored PostHog event, and an OpenAI answer citing both sources after credits are added.
+stored PostHog event, and a source-backed OpenAI investigation in that hosted session. Funded local generation and independent source queries have passed.
 
 ## Product, web analytics, and experimentation demo
 
