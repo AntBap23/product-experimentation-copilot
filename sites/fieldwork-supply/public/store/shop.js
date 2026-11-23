@@ -3,6 +3,7 @@ const catalog = [
   { id: 'summit-750', name: 'Summit Bottle', price: 28, description: 'A 750 mL insulated bottle for full days outside.' },
 ];
 
+const experiment = window.fieldworkExperiment;
 const bag = new Map();
 const demoShoppers = [
   { id: 'fieldwork-demo-alex', name: 'Alex' },
@@ -32,6 +33,7 @@ let sequence = 0;
 function track(event, properties = {}) {
   const data = {
     ...campaign,
+    experiment_id: experiment.id, variant: experiment.variant, experiment_unit_id: experiment.visitor, allocation_unit: "visitor", experiment_preview: experiment.preview,
     ...properties,
     demo_session_id: demoSessionId,
     event_sequence: ++sequence,
@@ -45,7 +47,7 @@ function track(event, properties = {}) {
   const row = document.createElement('li');
   row.textContent = event + ' · ' + JSON.stringify(data);
   eventLog.append(row);
-  window.posthog?.capture(event, data);
+  if (!experiment.preview) window.posthog?.capture(event, data);
 }
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -83,19 +85,21 @@ function action(label, callback, className = 'action') {
 }
 
 function identifyShopper() {
-  if (shopper) window.posthog?.identify(shopper.id, {
+  if (shopper && !experiment.preview) window.posthog?.identify(shopper.id, {
     name: shopper.name + ' (Demo)', is_demo: true, data_source: 'demo_store',
   });
   document.querySelector('#account').textContent = shopper ? shopper.name + ' · Demo account' : 'Demo sign in';
 }
 
 async function changeShopper(next) {
+  if(experiment.preview){showError('Preview only: sign-in, checkout and collection are disabled.');return;}
   if (shopper && backendReady) { await storeBackend.action('demo_signed_out'); track('demo_signed_out'); }
   window.posthog?.reset();
   shopper = undefined; backendReady = false;
   bag.clear(); checkoutId = undefined; refreshCount(); identifyShopper();
   try { sessionStorage.removeItem('fieldwork-demo-shopper'); } catch {}
   let server;
+  if(experiment.preview){showError('Preview only: open the store without experiment_preview to place a demo order.');return;}
   if (next) server = await storeBackend.login(next.id);
   shopper = next;
   backendReady = Boolean(next);
@@ -123,6 +127,7 @@ async function syncBag() {
   refreshCount(); return result;
 }
 async function record(name,properties={}) {
+  if(experiment.preview)throw Error('Preview only: checkout and analytics are disabled.');
   const result=await storeBackend.action(name,properties);
   track(name, { ...properties, backend_event_id:result.event_id, ...(result.order_id?{transaction_id:result.order_id}:{}) });
   if (result.telemetry?.status==='pending') showError('Your action is saved in the database. Analytics delivery is waiting to retry.');
@@ -147,6 +152,7 @@ async function showProduct(item) {
   else track('view_item', {item_id:item.id,price:item.price,currency:'USD'});
   show(item.name, '<p>' + item.description + '</p><p>' + dollars(item.price) + '</p>');
   action('Add to bag', async () => {
+    track('product_cta_clicked',{item_id:item.id,cta:'details_add'});
     if (!shopper || !backendReady) { showAccount(); return; }
     await record('add_to_cart', {item_id:item.id,quantity:1});
     await syncBag(); showBag();
@@ -212,12 +218,24 @@ for (const item of catalog) {
   card.className = 'card';
   card.innerHTML = '<h3>' + item.name + '</h3><p>' + item.description + '</p><p class="price">' + dollars(item.price) + '</p>';
   const button = document.createElement('button');
-  button.textContent = 'View details ↗';
+  button.textContent = experiment.variant === 'B' ? 'Add to bag · '+dollars(item.price) : 'View details';
+  if(experiment.variant==='B'){button.className='quick-add';const note=document.createElement('p');note.className='purchase-note';note.textContent='Demo sign-in required · Simulated orders only';card.append(note);}
   button.setAttribute('aria-label', 'View ' + item.name);
-  button.addEventListener('click', () => showProduct(item).catch(error=>showError(error.message)));
+  button.addEventListener('click', async () => {
+    button.disabled=true;
+    try{track('product_cta_clicked',{item_id:item.id,cta:experiment.variant==='B'?'quick_add':'view_details'});
+      if(experiment.variant==='A'){await showProduct(item);return;}
+      track('view_item',{item_id:item.id,surface:'quick_add'});
+      if(!shopper||!backendReady){showAccount();return;}
+      await record('add_to_cart',{item_id:item.id,quantity:1});await syncBag();showBag();
+    }catch(error){showError(error.message);}finally{button.disabled=false;}
+  });
   card.append(button);
   products.append(card);
 }
+
+const exposureObserver=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){track('experiment_exposure',{surface:'product_cards'});track('view_item_list',{surface:'product_cards'});exposureObserver.disconnect();}},{threshold:.25});
+exposureObserver.observe(products);
 
 document.querySelector('#cart').addEventListener('click', async () => {
   try { if(backendReady) { await storeBackend.action('return_to_cart');await syncBag(); } showBag(); } catch(error){showError(error.message);}
@@ -226,6 +244,7 @@ document.querySelector('#account').addEventListener('click', showAccount);
 document.querySelector('#close').addEventListener('click', () => dialog.close());
 dialog.addEventListener('close', () => { checkoutId = undefined; });
 (async()=>{
+ if(experiment.preview){identifyShopper();return;}
  try { const session=await syncBag(); shopper=demoShoppers.find(u=>u.id===session.shopper.user); backendReady=Boolean(shopper); if(shopper)await storeBackend.action('$pageview'); }
  catch(error){shopper=undefined;backendReady=false;if(!error.message.includes('Choose a demo shopper'))showError(error.message);}
  identifyShopper(); track('$pageview',{$current_url:location.origin+location.pathname});

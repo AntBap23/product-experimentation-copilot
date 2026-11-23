@@ -1,0 +1,243 @@
+{
+  "experiment": {
+    "id": "fw_quick_add_v1",
+    "name": "Quick add on product cards",
+    "dataset": "fieldwork_experiment_2000_v1",
+    "seed": 20261122,
+    "start": "2026-11-09",
+    "end": "2026-11-23",
+    "unit": "visitor",
+    "allocation": 0.5
+  },
+  "is_synthetic": true,
+  "data_source": "scripted_event_simulation",
+  "events": 9126,
+  "users": 2000,
+  "variants": [
+    {
+      "variant": "A",
+      "visitors": 946,
+      "engaged": 735,
+      "cta_clicks": 303,
+      "carts": 303,
+      "checkouts": 185,
+      "purchases": 118,
+      "payment_errors": 11,
+      "revenue": 7000,
+      "bounce": 211
+    },
+    {
+      "variant": "B",
+      "visitors": 1054,
+      "engaged": 814,
+      "cta_clicks": 446,
+      "carts": 446,
+      "checkouts": 305,
+      "purchases": 207,
+      "payment_errors": 14,
+      "revenue": 11732,
+      "bounce": 240
+    }
+  ],
+  "effect": {
+    "absolute_pp": 7.165895752012869,
+    "relative_pct": 57.44862187630655,
+    "ci95_pp": [
+      3.9743634905037926,
+      10.357428013521943
+    ],
+    "method": "Unpooled normal 95% interval; independent visitors; fixed horizon; no sequential adjustment"
+  },
+  "srm": {
+    "chi_square": 5.832,
+    "expected": "50/50",
+    "warning": false
+  },
+  "segments": {
+    "device": [
+      {
+        "value": "Mobile",
+        "variants": [
+          {
+            "variant": "A",
+            "visitors": 582,
+            "engaged": 441,
+            "cta_clicks": 172,
+            "carts": 172,
+            "checkouts": 110,
+            "purchases": 66,
+            "payment_errors": 8,
+            "revenue": 3864,
+            "bounce": 141
+          },
+          {
+            "variant": "B",
+            "visitors": 671,
+            "engaged": 523,
+            "cta_clicks": 283,
+            "carts": 283,
+            "checkouts": 190,
+            "purchases": 129,
+            "payment_errors": 9,
+            "revenue": 7084,
+            "bounce": 148
+          }
+        ]
+      },
+      {
+        "value": "Desktop",
+        "variants": [
+          {
+            "variant": "A",
+            "visitors": 364,
+            "engaged": 294,
+            "cta_clicks": 131,
+            "carts": 131,
+            "checkouts": 75,
+            "purchases": 52,
+            "payment_errors": 3,
+            "revenue": 3136,
+            "bounce": 70
+          },
+          {
+            "variant": "B",
+            "visitors": 383,
+            "engaged": 291,
+            "cta_clicks": 163,
+            "carts": 163,
+            "checkouts": 115,
+            "purchases": 78,
+            "payment_errors": 5,
+            "revenue": 4648,
+            "bounce": 92
+          }
+        ]
+      }
+    ],
+    "channel": [
+      {
+        "value": "organic",
+        "variants": [
+          {
+            "variant": "A",
+            "visitors": 373,
+            "engaged": 299,
+            "cta_clicks": 120,
+            "carts": 120,
+            "checkouts": 72,
+            "purchases": 49,
+            "payment_errors": 5,
+            "revenue": 2828,
+            "bounce": 74
+          },
+          {
+            "variant": "B",
+            "visitors": 420,
+            "engaged": 314,
+            "cta_clicks": 170,
+            "carts": 170,
+            "checkouts": 118,
+            "purchases": 81,
+            "payment_errors": 7,
+            "revenue": 4228,
+            "bounce": 106
+          }
+        ]
+      },
+      {
+        "value": "email",
+        "variants": [
+          {
+            "variant": "A",
+            "visitors": 153,
+            "engaged": 117,
+            "cta_clicks": 48,
+            "carts": 48,
+            "checkouts": 30,
+            "purchases": 20,
+            "payment_errors": 1,
+            "revenue": 1288,
+            "bounce": 36
+          },
+          {
+            "variant": "B",
+            "visitors": 206,
+            "engaged": 156,
+            "cta_clicks": 93,
+            "carts": 93,
+            "checkouts": 64,
+            "purchases": 50,
+            "payment_errors": 0,
+            "revenue": 2856,
+            "bounce": 50
+          }
+        ]
+      },
+      {
+        "value": "paid_search",
+        "variants": [
+          {
+            "variant": "A",
+            "visitors": 212,
+            "engaged": 163,
+            "cta_clicks": 71,
+            "carts": 71,
+            "checkouts": 43,
+            "purchases": 24,
+            "payment_errors": 3,
+            "revenue": 1400,
+            "bounce": 49
+          },
+          {
+            "variant": "B",
+            "visitors": 217,
+            "engaged": 176,
+            "cta_clicks": 85,
+            "carts": 85,
+            "checkouts": 55,
+            "purchases": 35,
+            "payment_errors": 3,
+            "revenue": 1988,
+            "bounce": 41
+          }
+        ]
+      },
+      {
+        "value": "social",
+        "variants": [
+          {
+            "variant": "A",
+            "visitors": 208,
+            "engaged": 156,
+            "cta_clicks": 64,
+            "carts": 64,
+            "checkouts": 40,
+            "purchases": 25,
+            "payment_errors": 2,
+            "revenue": 1484,
+            "bounce": 52
+          },
+          {
+            "variant": "B",
+            "visitors": 211,
+            "engaged": 168,
+            "cta_clicks": 98,
+            "carts": 98,
+            "checkouts": 68,
+            "purchases": 41,
+            "payment_errors": 4,
+            "revenue": 2660,
+            "bounce": 43
+          }
+        ]
+      }
+    ]
+  },
+  "assumptions": [
+    "Fictional visitors; scripted events, not browser replays or database orders.",
+    "Treatment effect is deliberately planted in generation probabilities.",
+    "One session per visitor; first exposure is the denominator.",
+    "Segments are exploratory; no multiple-comparison adjustment.",
+    "Revenue is simulated gross merchandise value; no payment processed."
+  ]
+}

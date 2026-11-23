@@ -210,3 +210,13 @@ and the [earlier synthetic fixture audit](docs/synthetic_dataset.md).
 
 The next demonstration milestone is a hosted database-backed checkout, its
 matching stored PostHog event, and an OpenAI answer that cites both sources.
+
+## Product, web analytics, and experimentation demo
+
+The Experiments workspace compares the original product cards with direct Add to bag buttons. It includes actual before/after screenshots, a reproducible 2,000-visitor synthetic dataset (9,126 events), product funnels, device/channel segmentation, a difference interval, guardrails, and traceable read-only experiment evidence. The planted effect is explicitly labeled synthetic.
+
+- [Experiment specification, metrics, screenshots, and reproduction](docs/experiments/quick-add.md)
+- [Open experiment workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site/?view=experiments)
+- [Preview control](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=A) · [Preview treatment](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=B)
+
+PostHog MCP verified all 9,126 unique synthetic event records and the exact per-variant counts. The frontend intentionally displays a bundled reproducible aggregate; it does not represent this as a live PostHog query. This is a custom-coded A/B experiment, not a native PostHog feature flag. Preview overrides are excluded from analytics and checkout writes.

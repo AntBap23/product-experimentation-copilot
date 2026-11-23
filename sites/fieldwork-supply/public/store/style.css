@@ -9,3 +9,5 @@ dialog{color:var(--ink);background:var(--paper);border:1px solid var(--line);wid
 @media(max-width:700px){header{min-height:60px;flex-wrap:wrap}.brand{font-size:.79rem}.nav{gap:12px;flex-wrap:wrap}.nav a{display:none}.hero{grid-template-columns:1fr;min-height:0}.intro{padding:30px 6% 38px}.hero img{height:270px}.products{grid-template-columns:1fr}.gear{padding-top:35px}}
 
 #store-message{padding:14px 5%;background:#fff0d1;color:#704b23;border-bottom:1px solid #d8b783;font:14px/1.6 system-ui;position:relative;z-index:5}.order-id{font:13px/1.7 ui-monospace,monospace;overflow-wrap:anywhere}button:disabled{opacity:.5;cursor:wait}
+
+.experiment-preview{padding:12px 5%;background:#182e27;color:#fff;font:600 14px/1.5 system-ui;letter-spacing:.04em}.card .quick-add{border:0;background:#344333;color:white;padding:13px 22px;border-radius:4px;min-height:46px}.card .purchase-note{font-size:14px;line-height:1.5;margin:0 0 15px;color:#455241}.card .quick-add:hover{background:#223322}
