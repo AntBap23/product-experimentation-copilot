@@ -3,7 +3,6 @@ __pycache__/
 .streamlit/secrets.toml
 .env
 data/
-
 node_modules/
 .env*
 !.env.example
@@ -14,6 +13,5 @@ node_modules/
 .vinext/
 *.tsbuildinfo
 .DS_Store
-
-# Supabase CLI checkout-local cache
 supabase/.temp/
+/outputs/

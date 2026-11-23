@@ -11,3 +11,5 @@ dialog{color:var(--ink);background:var(--paper);border:1px solid var(--line);wid
 #store-message{padding:14px 5%;background:#fff0d1;color:#704b23;border-bottom:1px solid #d8b783;font:14px/1.6 system-ui;position:relative;z-index:5}.order-id{font:13px/1.7 ui-monospace,monospace;overflow-wrap:anywhere}button:disabled{opacity:.5;cursor:wait}
 
 .experiment-preview{padding:12px 5%;background:#182e27;color:#fff;font:600 14px/1.5 system-ui;letter-spacing:.04em}.card .quick-add{border:0;background:#344333;color:white;padding:13px 22px;border-radius:4px;min-height:46px}.card .purchase-note{font-size:14px;line-height:1.5;margin:0 0 15px;color:#455241}.card .quick-add:hover{background:#223322}
+
+@media(min-width:1000px){.products{grid-template-columns:repeat(3,minmax(0,1fr))}}.card{min-height:270px}.card:nth-child(3n+2){background:#dfe2d3}.card:nth-child(3n){background:#e5e6e0}.card .product-category{font:600 .72rem/1.4 system-ui;text-transform:uppercase;letter-spacing:.11em;color:#526047;margin:0 0 12px}.card h3{font-size:clamp(1.7rem,2.4vw,2.3rem)}

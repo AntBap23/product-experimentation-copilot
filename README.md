@@ -1,230 +1,257 @@
-# Fieldwork · Product Experimentation Copilot
+# Fieldwork · Agentic Product Analytics & Experimentation
 
-A product analytics workspace built around a working demo storefront. Shoppers
-create persistent carts and orders in Supabase; PostHog collects behavioral and
-server events; an analyst agent uses approved read-only tools to explain the data
-and return inspectable evidence.
+**[Open Fieldwork Analytics](https://fieldwork-analytics-demo.antbap23.workers.dev/)**
 
-The **storefront and analytics workspace are separate applications**. All shoppers
-and payments are fictional. The application code, SQL transactions, telemetry
-pipeline, and API integrations are real.
+Fieldwork turns product and website data into an investigation you can inspect.
+Ask a question in ordinary language; the AI selects read-only tools, queries
+**PostHog and Supabase**, explains its interpretation, and attaches the evidence.
+Use the same workspace to review an A/B experiment and prepare an editable
+PowerPoint readout for a human decision.
 
-## Current status
+The public analytics app runs on Cloudflare Workers and opens without a ChatGPT
+account. It uses the supplied `workers.dev` address; no purchased domain is
+required. The storefront is a separate application that collects the activity
+being analyzed.
 
-| Area | Implemented and verified | Still pending |
-| --- | --- | --- |
-| Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Verify checkout again in the hosted signed-in session. |
-| Supabase | Dedicated development project provisioned; 15 protected tables, six demo shoppers, two products. Transaction and authorization tests pass. | Run the 2,000-shopper application-flow simulation. |
-| Analytics UI | Separate dashboard, chat, evidence drawer, and experiment workspace. Supabase and PostHog source selection executes fresh queries and compares the results. | OpenAI generation needs credits. |
-| OpenAI agent | Responses API tool loop implemented. Secure project key provisioned; model access check succeeded. | Live generation test returned `credit_balance_exhausted`; add API credits before the demo. |
-| PostHog | Server-only query key configured. Fresh queries independently reproduce the persisted experiment metrics; transactional outboxes deliver commerce and experiment events. | No scheduled retry worker; delivery lag is shown as a comparison difference. |
-| Experiments | Supabase-persisted assignments, exposures and session/order attribution. Live source queries, synthetic/live cohort selection, comparison, methods and screenshots. | A separately planned real-customer test and native PostHog flag integration. |
+## What the product does
 
-Preview the [analytics workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site)
-and the [existing storefront](https://fieldwork-checkout-lab.bapnocap.chatgpt.site).
-The experiment view executes live queries against either source. The scripted
-2,000-visitor fixture and live demo interactions are kept in separate datasets.
-Live OpenAI generation remains pending API credits.
-
-## How the system works
-
-```mermaid
-flowchart LR
-    Shopper[Demo shopper] --> Store[Storefront UI]
-    Store --> API[Same-origin store API]
-    API --> DB[(Supabase Postgres)]
-    DB --> Outbox[Transactional event outbox]
-    Outbox --> PH[PostHog]
-    Analyst[Analyst] --> UI[Analytics workspace]
-    UI --> Agent[OpenAI tool-calling agent]
-    Agent --> Tools[Approved read-only tools]
-    Tools --> DB
-    Tools --> PH
-```
-
-Checkout prices come from the database, not the browser. An order, its line items,
-its canonical event, and an outbox record are written in one transaction.
-Idempotency keys and unique checkout constraints prevent duplicate orders.
-
-PostHog receives the backend purchase as **`order_completed`**, with the database
-order ID as `transaction_id`. Browser **`purchase`** events are a separate
-behavioral stream. Reconciliation compares the identifiers; it does not add both
-streams together as separate orders.
-
-The agent cannot execute arbitrary SQL or write commerce data. It can select
-approved tools for overview, device funnel, daily orders, products, channels,
-order reconciliation, and synthetic experiment evidence. Each result includes its source, dataset, date boundaries,
-query or RPC, returned data, and execution time. OpenAI chooses tools and explains
-returned evidence; SQL and code calculate the metrics.
-
-## Repository layout
-
-| Path | Purpose |
+| Workspace | Current functionality |
 | --- | --- |
-| `sites/fieldwork-supply/` | Storefront UI and same-origin backend routes |
-| `sites/fieldwork-agent/` | Analytics dashboard, chat and evidence inspector |
-| `platform/` | Canonical shared backend, validation, sessions, telemetry and agent tools |
-| `database/schema.sql` | Initial Supabase schema and transactional RPC functions |
-| `scripts/simulate_shoppers.mjs` | Fictional shoppers using the real application APIs |
-| `scripts/seed_posthog.py` | Earlier event-only PostHog fixture generator |
-| `tests/` | Postgres transaction tests and server security checks |
-| `docs/platform_build.md` | Detailed architecture, configuration and limitations |
-| `app.py`, `analysis_engine.py`, `readout_deck.py` | Earlier Streamlit prototype and editable PowerPoint readouts |
+| **Overview** | Website visitors, signed-in shoppers, completed orders, USD revenue, daily orders, checkout step reach, and product sales, with source labels |
+| **Ask AI** | Interprets ambiguous questions, chooses supported measures, queries data, compares signals, and explains findings with source evidence |
+| **Experiments** | Reviews control A versus variant B, conversion, revenue, funnel steps, guardrails, segments, allocation checks, and uncertainty |
+| **Data Sources** | Explains the roles of PostHog and Supabase, distinguishes configuration from successful queries, and compares matching event counts |
+| **Data Dictionary** | Searches and filters 22 definitions across metrics, events, dimensions, and experiments; includes calculations, caveats, fields, and editable example questions |
 
-The shared server modules are copied into each Site by `npm run configure`.
-Edit `platform/`, not the generated copies in `sites/*/lib/platform/`.
+The workspace keeps commerce and experiment scopes separate. Commerce date
+changes take effect with **Apply dates**. Experiments have their own cohort,
+source, and date controls. All analysis windows use UTC, include the start date,
+and exclude the end date.
 
-## Local setup
+## Questions you can investigate
 
-Use Node **22.13 or newer**.
+- **“What products do users like most?”** The agent interprets this as behavioral
+  interest, compares unique viewers and cart users, and adds purchase evidence.
+  It distinguishes those signals from ratings or satisfaction.
+- **“Which products generate the most revenue?”** It ranks purchase-time line
+  revenue in USD and can cross-check Supabase against PostHog.
+- **“Where are shoppers dropping out of checkout?”** It examines sessions
+  reaching each checkout step and differences by device.
+- **“Why are visitor and shopper counts different?”** It queries browser
+  profiles separately from signed-in shopper accounts and explains their scope.
+- **“Do the sources agree?”** It compares the shared canonical event cohort or
+  reconciles saved orders with confirmed PostHog order IDs.
+- **“How does variant B compare with control A?”** In Experiments, it examines
+  the selected experiment's results, guardrails, source agreement, and limits.
+
+Answers expose their source systems, returned results, exact queries, cohort,
+date window, and check time. The model selects and explains analyses; SQL and
+application code calculate the measures. It cannot execute arbitrary SQL,
+change the data, launch experiments, or ship a variant.
+
+## How the two data sources work
+
+| Source | What it contributes |
+| --- | --- |
+| **PostHog** | Browser person profiles, native browser sessions, pageviews, product interest, and confirmed server purchase events |
+| **Supabase** | Signed-in shopper accounts, shopping sessions, carts, canonical application events, saved orders, and purchase-time order lines |
+
+The storefront captures browser behavior through the PostHog SDK. Its backend
+persists application actions and orders in Supabase, then forwards canonical
+events through a durable outbox to PostHog. The analytics API independently
+queries those sources. OpenAI interprets the evidence; it is not another
+analytics data source.
+
+The definitions matter:
+
+- A browser visitor profile is different from a signed-in shopper account.
+- A PostHog SDK session has different boundaries from a shopping session.
+- Checkout step counts measure session reach, not a strictly ordered funnel.
+- Product interest uses independent viewer/cart-user counts, not a satisfaction
+  score or a sequential view-to-cart conversion rate.
+- Product revenue is gross merchandise revenue in **USD**: quantity multiplied
+  by purchase-time unit price. Refunds, tax, and shipping are excluded.
+
+**Compare sources** checks matching canonical event, user, and application-session
+counts by event, device, channel, and page. Browser-only traffic is excluded.
+PostHog `order_completed` maps to Supabase `purchase`; browser purchase copies
+are not added again. Delivery lag can cause temporary differences. Order-ID
+reconciliation is a separate, explicitly bounded check of the latest 500 orders
+from each source.
+
+## Experiments and human review
+
+The implemented test compares **control A**, where a shopper opens product
+details before adding an item, with **variant B**, which adds an **Add to bag**
+button on product cards. Assignment and exposure records are persisted; results
+use the experiment unit's first exposure and subsequent attributed activity.
+
+The experiment workspace includes a website-interaction cohort and a separately
+labeled synthetic example. It shows the designs, outcomes, exploratory segments,
+sample-ratio checks, guardrails, and an illustrative interval when the sample
+supports the implemented method. It does not turn demo traffic into evidence of
+real-customer lift or provide a general self-service experiment builder.
+
+Choose **Create readout** to pin the current result and query evidence. Edit the
+summary, conclusion, analyst interpretation, risks, recommendation, next steps,
+reviewer, owner, and human decision. Drafts save in the current browser and are
+not replaced by a dashboard refresh.
+
+**Download editable PowerPoint** exports native editable text, tables, and charts
+with embedded workbooks, control/variant screenshots, and query evidence in
+speaker notes. **Download evidence JSON** preserves the snapshot and narrative.
+Downloads remain drafts for human review; editing them does not modify the data.
+
+## Storefront and data scope
+
+The separate storefront serves **12 products** from the database catalog. Demo
+sign-in supports preset shopper accounts and newly issued visitor profiles.
+Carts, checkout states, orders, line items, and canonical events are persisted
+through the application backend. Prices are server-authoritative and purchase
+retries are idempotent.
+
+**Website activity** contains captured storefront interactions, including manual
+and automated demo journeys. Shopper identities are fictional and payments are
+demo transactions. Distinct profiles are not independently recruited people or
+proof of customer demand. Earlier generated datasets are isolated from the
+public website view; no continuous traffic generator is running.
+
+The public app starts with a configured recorded activity window. The dates are
+shown and editable; another period may contain different or no activity. Measures
+are queried from persisted records, not hardcoded dashboard totals. Experiment
+windows and cohorts are selected separately.
+
+## Architecture and access
+
+| Layer | Current implementation |
+| --- | --- |
+| Interface | React, TypeScript, Vinext, and explicit source/evidence components |
+| Public server | Cloudflare Worker with approved read-only analytics routes |
+| Analyst | OpenAI Responses API with strict tool schemas and bounded tool-calling rounds |
+| Data access | Supabase SQL/RPC queries and PostHog HogQL queries |
+| Reports | Browser-generated editable PowerPoint and evidence JSON |
+| Usage controls | SQLite-backed Durable Object holding operational quota counters |
+
+The public analytics app allows investigations and exports, not checkout writes
+or telemetry retry operations. It rejects unsupported cohorts, arbitrary tool
+arguments, cross-origin questions, and spoofed private-site identity headers.
+Credentials stay in server secrets and never appear in client bundles.
+
+Public AI investigations are capped at **three per browser per UTC day and 20
+globally per UTC day**, with additional request limits. These count attempts,
+not dollars; model calls use the separately funded OpenAI account. The deployed
+app uses Workers Free and its provided address, subject to provider limits.
+
+The existing storefront and owner-private analytics deployment remain separate
+from this public Worker. The public app hides storefront preview links unless a
+separately accessible storefront URL is configured.
+
+## Run locally
+
+Use Node **22.13 or newer**. Install the locked dependencies from the repo root:
 
 ```sh
 npm ci
-npm --prefix sites/fieldwork-supply ci
 npm --prefix sites/fieldwork-agent ci
+npm --prefix sites/fieldwork-supply ci
 ```
 
-Create a dedicated Supabase development project. Inspect its tables, then apply
-`database/schema.sql` once to its empty public schema. It intentionally does not
-drop existing tables. The current project has already been provisioned; do not
-reapply the initial schema to it or to unrelated projects.
+Create `.env` from `.env.example` only when no local environment file exists.
+Preserve an existing configuration. Required server settings depend on the app:
 
-Copy `.env.example` to `.env` if no local environment file exists. If `.env`
-already exists, preserve it and fill only the missing values.
-
-| Variable | Used for |
+| Configuration | Purpose |
 | --- | --- |
-| `SUPABASE_URL` | Dedicated project's API URL |
-| `SUPABASE_SECRET_KEY` | Backend-only Supabase server secret |
-| `SESSION_SECRET` | Random signing secret of at least 32 characters |
-| `SIMULATION_TOKEN` | Random authorization token for the controlled simulator |
-| `POSTHOG_HOST`, `POSTHOG_PROJECT_TOKEN` | Event ingestion |
-| `POSTHOG_APP_HOST`, `POSTHOG_PROJECT_ID` | Analytics query destination |
-| `POSTHOG_PERSONAL_API_KEY` | Backend-only read/query credential |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | OpenAI Responses API analyst |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Application database and analytics queries |
+| `POSTHOG_PROJECT_ID`, `POSTHOG_PERSONAL_API_KEY` | Server-side PostHog queries |
+| `POSTHOG_APP_HOST` | Query host when overriding the configured US default |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | Model-driven investigations using a model available to the project |
+| `POSTHOG_HOST`, `POSTHOG_PROJECT_TOKEN` | Storefront capture; the project capture token is public by design |
+| `SESSION_SECRET` | Storefront session signing; at least 32 random characters |
 
-The OpenAI model is configured as `gpt-6.1-terra`. A valid key and model access do
-not establish that API credits are available. No paid agent request is required
-to run the automated tests.
+A new database needs the schema and applicable versioned migrations. Use a
+separate development project; do not reapply initialization to the existing
+populated database or an unrelated project. See the [architecture and setup
+guide](docs/platform_build.md).
 
 ```sh
 npm run configure
-# Generates the storefront's public ingestion configuration:
-cd sites/fieldwork-supply
-node build-analytics.mjs
-cd ../..
-
 # Run these in separate terminals:
-npm run dev:store       # http://localhost:3001
 npm run dev:analytics   # http://localhost:3000
+npm run dev:store       # http://localhost:3001
 ```
 
-Local previews use the Sites starter's simulated ChatGPT sign-in. Hosted access
-uses the Site's private access policy. Demo shopper selection is a simulation,
-not production customer authentication.
+`npm run configure` writes ignored local runtime configuration and synchronizes
+shared server modules. Edit `platform/`, not generated
+`sites/*/lib/platform/` copies. Storefront capture configuration comes from its
+runtime endpoint, not an ignored generated browser-config file. Production
+credentials must be configured separately from local `.dev.vars` files.
 
-When no model key is configured, the chat explicitly uses **Guided analysis**.
-When a configured provider fails, the application returns an error instead of
-inventing an answer or silently claiming the model succeeded.
+## Build and deploy
 
-## Credentials and GitHub
-
-**Never commit `.env`, `.dev.vars`, server keys or generated customer data.**
-Only `.env.example`, containing variable names and safe example values, belongs
-in GitHub. Local environment files, generated builds, dependency directories and
-runtime state are ignored.
+The public analytics target is independent of ChatGPT Sites:
 
 ```sh
-# Print whether the local environment file is ignored:
-git check-ignore .env
-# Scan source/build files against configured server-secret values without printing them:
-node scripts/check_secrets.mjs
+npm --prefix sites/fieldwork-agent run build:resume
+npm --prefix sites/fieldwork-agent run check:resume   # deployment dry run
+npm --prefix sites/fieldwork-agent run deploy:resume # authorized Cloudflare account
 ```
 
-`npm run configure` writes ignored local `.dev.vars` files. Those files do not
-configure production. Set hosted secrets in each Site's runtime environment, then
-deploy a new saved version. The storefront does not receive the OpenAI key or
-PostHog personal query key. Keep both Sites owner-private for this initial build.
+Build this target immediately before checking or deploying it. The script rejects
+a private-Sites build. Configure the Worker's database, PostHog, and OpenAI secrets
+separately. The public read-only target needs neither storefront session secrets
+nor simulation or capture credentials.
 
-The development OpenAI key was created through the secure OpenAI Developers
-setup flow and saved to the developer-confirmed local environment file. It is
-not included in this repository.
+The ordinary app `build` commands retain the existing private Sites targets.
+See [Cloudflare deployment and public API limits](docs/resume-hosting.md) for the
+current commands, variables, and deployment boundaries.
 
-## Two different kinds of simulation
-
-| Dataset | What it represents |
-| --- | --- |
-| `fieldwork_synthetic_2000_v1` | Earlier direct import: 2,000 profiles, 32,803 events, 5,790 visits and 1,492 simulated purchases. It contains no corresponding application order records. |
-| `fieldwork_flow_v1` | New simulation that calls login, cart, checkout and payment APIs, creating persistent orders before telemetry delivery. Implemented, not yet run for all 2,000 shoppers. |
-| `fieldwork_live_v2` | Manual browser and backend verification journeys in the upgraded application. Still fictional shoppers and simulated payments. |
-
-Do not use the earlier import as proof that the new application flows work.
-
-After configuring the backend and verifying one manual checkout, set
-`STORE_BASE_URL` and run:
-
-```sh
-npm run simulate -- --users 2
-npm run simulate -- --users 2000
-```
-
-The simulator uses four workers, stable shopper/session/request IDs and a local
-checkpoint. Each shopper has two visits over November 9–22, 2026 UTC. A planted
-scenario lowers mobile payment completion in the second week. Change the dataset
-version before changing those fixed dates or generation logic.
-
-For a private hosted storefront, the simulator also needs supported platform
-service access in `STORE_SERVICE_TOKEN`. Keep it local. The simulator uses the
-same business-operation handlers as the browser; it does not insert orders
-straight into database tables or fabricate PostHog purchase events.
-
-## Validation
+## Verification
 
 ```sh
 npm test
-(cd sites/fieldwork-agent && ./node_modules/.bin/tsc --noEmit)
-(cd sites/fieldwork-supply && ./node_modules/.bin/tsc --noEmit)
-npm --prefix sites/fieldwork-agent run build
-npm --prefix sites/fieldwork-supply run build
 ```
 
-Database tests run the SQL against embedded Postgres through PGlite. They check
-server-calculated totals, line-item consistency, session ownership, idempotent
-retries, duplicate-order prevention, outbox claiming, sign-out, and denied browser
-access. Server tests check signed sessions, date/dataset bounds, approved tools,
-authentication and cross-origin write rejection.
+The automated suite covers database transactions, session ownership,
+idempotency, catalog price trust, revenue calculations, agent tools, experiment
+queries, editable readouts, and the public API's authorization and atomic quotas.
+CI runs the suite, TypeScript checks, app builds, and the standalone deployment
+dry run. Tests do not require paid model requests.
 
-GitHub Actions runs tests, type checks and builds without live provider secrets.
-Live Supabase, PostHog and OpenAI verification is reported separately from those
-checks. See [hosted collection evidence](docs/live_collection_verification.md)
-and the [earlier synthetic fixture audit](docs/synthetic_dataset.md).
+The deployed public app has also been checked for anonymous access, live data
+queries, a model-driven cross-source investigation, matching canonical counts,
+blocked public writes, and an editable PowerPoint download. Current values and
+source agreement should be inspected in the app for the selected dates rather
+than inferred from a fixed count in this README.
 
 ## Current boundaries
 
-- All customer activity and payments are simulated. This is not a real payment system.
-- The workspace is single-owner, not a multi-tenant analytics service.
-- PostHog retries are request-triggered or explicitly invoked; no scheduled retry worker is configured.
-- Capture acceptance is not proof of stored/queryable events; reconcile against PostHog records.
-- Reconciliation is limited to the latest 500 orders from each source and labels that scope.
-- Date windows use UTC and an exclusive end. Funnels can truncate outcomes near the window end.
-- The custom experiment includes illustrative fixed-horizon inference on a planted synthetic effect. It cannot establish real causal lift or justify a production rollout. Native PostHog flag orchestration is not implemented.
-- Persistent chat history and production customer authentication are future work.
+The public app is a read-only analytics demo. The included experiment, account
+profiles, and payments are for demonstration, and the UI does not create arbitrary
+new experiments. Reviews, satisfaction, retention, lifetime value, refunds,
+cross-device identity, and multi-touch attribution are not dedicated implemented
+measures. Source errors, missing data, and mismatches remain visible rather than
+being filled with invented results.
 
-The next verification milestone is a signed-in hosted checkout, its matching
-stored PostHog event, and an OpenAI answer citing both sources after credits are added.
+There is **no current demo video**. Outdated recordings were removed. A new
+recording will follow owner testing and an explicit request.
 
-## Product, web analytics, and experimentation demo
+## Code and guides
 
-The Experiments workspace compares the original product cards with direct Add to bag buttons. It includes actual before/after screenshots, a reproducible 2,000-visitor synthetic dataset (9,126 events), product funnels, device/channel segmentation, a difference interval, guardrails, and traceable read-only experiment evidence. The planted effect is explicitly labeled synthetic.
+| Directory | Responsibility |
+| --- | --- |
+| `sites/fieldwork-agent/` | Analytics UI, dictionary, report editor, and public Worker target |
+| `sites/fieldwork-supply/` | Separate storefront UI and application API |
+| `platform/` | Canonical shared tools, metric logic, sessions, and event delivery |
+| `database/`, `supabase/migrations/` | Database schema and versioned changes |
+| `tests/` | Automated behavior, security, calculation, and export checks |
+| `docs/` | Current feature definitions, architecture, and operating guides |
 
-- [Experiment specification, metrics, screenshots, and reproduction](docs/experiments/quick-add.md)
-- [Open experiment workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site/?view=experiments)
-- [Preview control](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=A) · [Preview treatment](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=B)
+- [Analytics workspace and dictionary](docs/analytics-workspace.md)
+- [Collection and source comparison](docs/website-collection.md)
+- [Revenue calculation contract](docs/product-revenue.md)
+- [Question interpretation](docs/agent-intent.md)
+- [Architecture and setup](docs/platform_build.md)
+- [Public deployment](docs/resume-hosting.md)
 
-PostHog MCP verified all 9,126 unique synthetic event records and the exact per-variant counts. The frontend now executes fresh Supabase and PostHog queries, exposes the evidence and query time, and checks aggregate parity across both sources. No bundled result is used as fallback. This is a custom-coded A/B experiment, not a native PostHog feature flag. Preview overrides are excluded from analytics and checkout writes.
-
-### Query-backed experiment data
-
-The synthetic fixture is now persisted in Supabase as well as PostHog. Select **Query source** to reproduce results from either system, and **Traffic cohort** to inspect newly collected demo-store interactions. Visitor assignments, exposures and session links persist in Supabase; a trigger attributes commerce outcomes using verified order IDs and server prices. Browser event capture cannot forge purchases.
-
-For a fresh database, apply `database/schema.sql` followed by `database/experiments.sql`. To backfill the existing synthetic fixture, run `node scripts/import_experiment_database.mjs` after generating it. The import is UUID-idempotent and does not create commerce orders. The root generator no longer creates a production-bundled result artifact. See the [experiment guide](docs/experiments/quick-add.md), [Supabase audit SQL](sql/experiment_audit.sql), and [PostHog query](sql/posthog_experiment.sql).
+Archived prototype and recording scripts are not the live app's runtime or its
+current setup procedure.

@@ -26,3 +26,18 @@ test('OpenAI cannot obtain an answer by requesting a write tool',async()=>{
   assert.equal(called,false);
  }finally{globalThis.fetch=original;}
 });
+
+
+test('the last bounded turn produces an explanation instead of requesting more tools',async()=>{
+ const original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(url,options)=>{
+  const body=JSON.parse(options.body);calls++;
+  if(calls<5)return Response.json({output:[{type:'function_call',name:'overview',arguments:'{}',call_id:'bounded_'+calls}]});
+  assert.equal(body.tool_choice,'none');
+  return Response.json({output:[{type:'message',content:[{type:'output_text',text:'The completed queries show one simulated order.'}]}]});
+ };
+ try{
+  const result=await openAIAnalysis('Explain the result',{dataset:'fieldwork_live_v2',start:'2026-11-01',end:'2026-11-24'},{OPENAI_API_KEY:'test-only-placeholder',OPENAI_MODEL:'test-model'},async()=>({tool:'overview',data:{orders:1}}));
+  assert.equal(calls,5);assert.equal(result.answer_source,'model');assert.match(result.answer,/completed queries/);
+ }finally{globalThis.fetch=original;}
+});

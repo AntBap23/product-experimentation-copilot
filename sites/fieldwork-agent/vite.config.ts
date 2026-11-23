@@ -38,6 +38,7 @@ const localBindingConfig = {
 };
 
 export default defineConfig(async ({ command }) => {
+  if(process.env.FIELDWORK_DEPLOY_TARGET==='resume')return (await import('./vite.resume.config')).default;
   configureToolEnvironment(process.cwd());
 
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.

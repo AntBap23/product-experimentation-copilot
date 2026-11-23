@@ -19,6 +19,8 @@ jobs:
       - run: ./node_modules/.bin/tsc --noEmit
         working-directory: sites/fieldwork-agent
       - run: npm --prefix sites/fieldwork-agent run build
+      - run: npm --prefix sites/fieldwork-agent run build:resume
+      - run: npm --prefix sites/fieldwork-agent run check:resume
       - run: npm --prefix sites/fieldwork-supply ci
       - run: ./node_modules/.bin/tsc --noEmit
         working-directory: sites/fieldwork-supply
