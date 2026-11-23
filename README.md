@@ -1,108 +1,103 @@
-# Fieldwork · Product Experimentation Copilot
+# Fieldwork · Product Analytics & Experimentation Copilot
 
-A product analytics workspace built around a working demo storefront. Shoppers
-create persistent carts and orders in Supabase; PostHog collects behavioral and
-server events; an analyst agent uses approved read-only tools to explain the data
-and return inspectable evidence.
+**[Open the public analytics demo](https://fieldwork-analytics-demo.antbap23.workers.dev/)**
 
-The **storefront and analytics workspace are separate applications**. All shoppers
-and payments are fictional. The application code, SQL transactions, telemetry
-pipeline, and API integrations are real.
+Fieldwork is a working analytics app that investigates product behavior using
+**PostHog and Supabase**. Ask a question in plain language, inspect the queries
+behind the answer, compare experiment results, and download an editable
+PowerPoint readout for human review.
 
-**[Open the public analytics demo](https://fieldwork-analytics-demo.antbap23.workers.dev/)** — no ChatGPT login or purchased domain required.
+The public analytics app runs independently on **Cloudflare Workers Free** using
+a supplied `workers.dev` address. Visitors need no ChatGPT login or purchased
+domain. The storefront is a separate application; its existing hosted version
+remains owner-private.
 
-## Current status
+## Navigate the app
 
-| Area | Implemented and verified | Still pending |
-| --- | --- | --- |
-| Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Plan a real-customer rollout; hosted demo checkout journeys are verified. |
-| Supabase | Dedicated development project provisioned; Protected tables, preset and server-issued demo shopper accounts, twelve active products. Transaction and authorization tests pass. | Generated traffic is isolated and delivery-disabled; the website view uses actual browser interactions. |
-| Analytics UI | Overview, Ask AI, Experiments, Data Sources, a 22-entry Data Dictionary, query evidence and editable PowerPoint readouts. Supabase and PostHog source selection executes fresh queries and compares the results. | Continue validation with planned real traffic. |
-| OpenAI agent | Funded Responses API tool-calling investigations return model explanations and inspectable evidence. The final bounded turn is reserved for an explanation. | Evaluate quality on more real analytics questions. |
-| PostHog | Server-only query key configured. Fresh queries independently reproduce the persisted experiment metrics; transactional outboxes deliver commerce and experiment events. | No scheduled retry worker; delivery lag is shown as a comparison difference. |
-| Experiments | Supabase-persisted assignments, exposures and session/order attribution. Live source queries, synthetic/live cohort selection, comparison, methods and screenshots. | A separately planned real-customer test and native PostHog flag integration. |
-
-Preview the [analytics workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site)
-and the [existing storefront](https://fieldwork-checkout-lab.bapnocap.chatgpt.site).
-The experiment view executes live queries against either source. The scripted
-2,000-visitor fixture and live demo interactions are kept in separate datasets.
-OpenAI credits are configured. The captioned walkthrough uses actual tool-backed model responses; see [demo recording and readout instructions](docs/demo/README.md).
-
-## Public resume hosting
-
-The analytics app also has a standalone Cloudflare Workers target with a free workers.dev address. Public access is limited to approved read-only analytics routes, with server-side credentials and a shared daily AI-question quota. A purchased domain and visitor ChatGPT account are not required. The existing private Sites deployment stays separate. See [standalone deployment and usage limits](docs/resume-hosting.md).
-
-## Navigating the workspace
-
-Use **Overview** for source-labeled measures, **Ask AI** to investigate, and **Experiments** for control/variant results and editable readouts. **Data Sources** explains the two systems—PostHog and Supabase—and checks their shared canonical events. AI is an analyst over those systems, not another data source.
-
-The **Data Dictionary** supports text search plus source and type filters. Its 22 definitions include calculations, limitations, technical fields, and starting questions that remain editable before submission. It distinguishes visitor profiles from shopper accounts, browser sessions from shopping sessions, and experiment units from both. Experiment questions open with experiment scope. See [workspace navigation and metric definitions](docs/analytics-workspace.md).
-
-## Website activity and catalog
-
-The storefront now has 12 products served from Supabase. The Website activity view uses PostHog browser events for visitor/pageview counts and Supabase for signed-in actions and orders. The Compare sources control validates the shared canonical-event cohort; browser-only guest traffic remains separate. Capture configuration is loaded from the deployed runtime, and collection is driven by actual site use. See [website collection and comparison](docs/website-collection.md).
-
-## Revenue by product
-
-USD product revenue is queryable independently in Supabase and PostHog, for both persisted demo orders and the separately mirrored historical purchase fixture. The agent compares quantity × purchase-time price and formats integer cents as USD dollars. See [the revenue contract, migrations, backfill and verified totals](docs/product-revenue.md).
-
-## Ask in ordinary language
-
-Questions such as “what products do users like most” are interpreted into measurable behavior. The agent states its assumption, compares product views and cart users, and adds persisted purchase evidence where supported. Imported event-only data supports product-interest analysis too. It asks a targeted follow-up only when a meaningful ambiguity has no reasonable default, and never silently changes the selected dataset. See [intent handling, capabilities and live checks](docs/agent-intent.md).
-
-## Editable experiment readouts
-
-In **Experiments**, ask an investigation question and choose **Create readout**. Review the narrative, add a reviewer and follow-up owner, and record a human decision. **Download editable PowerPoint** exports native editable text, tables and charts alongside control/variant screenshots and complete query evidence in speaker notes. **Download evidence JSON** preserves the pinned source snapshot. Drafts save in the current browser and remain unchanged when analytics refreshes. The synthetic fixture never constitutes evidence of real business lift.
-
-## How the system works
-
-```mermaid
-flowchart LR
-    Shopper[Demo shopper] --> Store[Storefront UI]
-    Store --> API[Same-origin store API]
-    API --> DB[(Supabase Postgres)]
-    DB --> Outbox[Transactional event outbox]
-    Outbox --> PH[PostHog]
-    Analyst[Analyst] --> UI[Analytics workspace]
-    UI --> Agent[OpenAI tool-calling agent]
-    Agent --> Tools[Approved read-only tools]
-    Tools --> DB
-    Tools --> PH
-```
-
-Checkout prices come from the database, not the browser. An order, its line items,
-its canonical event, and an outbox record are written in one transaction.
-Idempotency keys and unique checkout constraints prevent duplicate orders.
-
-PostHog receives the backend purchase as **`order_completed`**, with the database
-order ID as `transaction_id`. Browser **`purchase`** events are a separate
-behavioral stream. Reconciliation compares the identifiers; it does not add both
-streams together as separate orders.
-
-The agent cannot execute arbitrary SQL or write commerce data. It can select
-approved tools for overview, device funnel, daily orders, products, channels,
-order reconciliation, and synthetic experiment evidence. Each result includes its source, dataset, date boundaries,
-query or RPC, returned data, and execution time. OpenAI chooses tools and explains
-returned evidence; SQL and code calculate the metrics.
-
-## Repository layout
-
-| Path | Purpose |
+| Tab | What it does |
 | --- | --- |
-| `sites/fieldwork-supply/` | Storefront UI and same-origin backend routes |
-| `sites/fieldwork-agent/` | Analytics dashboard, chat and evidence inspector |
-| `platform/` | Canonical shared backend, validation, sessions, telemetry and agent tools |
-| `database/schema.sql` | Initial Supabase schema and transactional RPC functions |
-| `scripts/simulate_shoppers.mjs` | Fictional shoppers using the real application APIs |
-| `scripts/seed_posthog.py` | Earlier event-only PostHog fixture generator |
-| `tests/` | Postgres transaction tests and server security checks |
-| `docs/platform_build.md` | Detailed architecture, configuration and limitations |
-| `app.py`, `analysis_engine.py`, `readout_deck.py` | Earlier Streamlit prototype and editable PowerPoint readouts |
+| **Overview** | Source-labeled visitor, shopper, order, revenue and checkout measures |
+| **Ask AI** | Read-only investigations with explicit interpretations and inspectable evidence |
+| **Experiments** | Control/variant results, screenshots, source comparison and editable readouts |
+| **Data Sources** | Explains PostHog and Supabase, connection checks and canonical event comparison |
+| **Data Dictionary** | 22 searchable definitions with calculations, caveats, fields and editable example questions |
 
-The shared server modules are copied into each Site by `npm run configure`.
-Edit `platform/`, not the generated copies in `sites/*/lib/platform/`.
+Dictionary questions open in the appropriate commerce or experiment workspace.
+The agent's evidence includes returned results, the exact query, data source,
+cohort, UTC date window and check time. Dates are start-inclusive and
+end-exclusive; date edits take effect when **Apply dates** is selected.
 
-## Local setup
+## Two analytics sources
+
+| Source | Measures and records |
+| --- | --- |
+| **PostHog** | Browser visitor profiles, native browser sessions, pageviews, product interest and confirmed server purchase events |
+| **Supabase** | Signed-in shopper accounts, shopping sessions, carts, canonical actions, saved orders and purchase-time line items |
+
+The AI queries these systems; it is not a third data source. Browser profiles,
+shopper accounts, shopping sessions and experiment units have different
+identifiers and definitions. The dictionary explains those differences.
+
+**Compare sources** checks the matching canonical application-event cohort in
+both systems. Browser-only activity is excluded, and the PostHog
+`order_completed` event is normalized to Supabase `purchase`. Delivery lag can
+produce temporary differences. Matching aggregates do not replace a
+record-level audit; order-ID reconciliation is a separate tool.
+
+Product revenue is **USD gross merchandise revenue**, calculated from quantity
+× purchase-time unit price. Refunds, tax and shipping are not inferred. Browser
+purchase copies are excluded from canonical revenue comparisons.
+
+## Data and demo provenance
+
+- The storefront serves **12 active products** from Supabase with trusted prices.
+- Website activity comes from actual browser interactions captured by the
+  storefront and its backend. The additional 500-profile run operated the
+  published UI; it did not import spreadsheet rows or directly seed visit events.
+- Demo shopper profiles are fictional and payments are simulated. Distinct
+  profiles are not 500 independently recruited people or evidence of customer
+  demand.
+- Earlier imported and application-generated cohorts remain isolated from the
+  Website activity view. No traffic generator runs continuously.
+- The website experiment and the synthetic 2,000-visitor example have separate
+  cohorts. Demo results cannot justify a real-customer shipping decision.
+
+The public commerce view initially uses the recorded window **October 27 to
+November 24, 2026 UTC**, with the end date excluded. Dates remain visible and
+editable. It queries persisted data rather than substituting bundled results.
+Experiments have their own cohort and date controls.
+
+## Editable PowerPoint readouts
+
+In **Experiments**, choose **Create readout**. Review the pinned source snapshot,
+edit the narrative, add a reviewer and follow-up owner, and record a human
+decision. **Download editable PowerPoint** exports editable text, tables and
+charts, plus control/variant screenshots and complete query evidence in notes.
+**Download evidence JSON** retains the associated snapshot and narrative.
+
+Drafts save in the current browser. Refreshing analytics does not replace a
+saved draft; **New draft from current data** explicitly creates a new snapshot.
+Exports remain drafts for human review. Editing a downloaded deck does not
+change the analytics database.
+
+## Public deployment and limits
+
+The public Worker exposes approved **read-only analytics routes**. Checkout
+writes, telemetry retries, unsupported cohorts, arbitrary tool arguments and
+spoofed private-site identity headers are rejected.
+
+Credentials stay in Cloudflare Worker secrets. A SQLite-backed Durable Object
+stores operational usage counters, not analytics data. It atomically limits
+public AI investigations to **three per browser per UTC day and 20 globally per
+UTC day**, with additional API request limits. These count attempted
+investigations, not dollars. OpenAI calls use the separately funded API account;
+Cloudflare, Supabase and PostHog retain their respective plan limits.
+
+See [public hosting, credentials and deployment commands](docs/resume-hosting.md).
+The existing owner-private Sites deployment remains separate and preserves its
+authentication and access settings.
+
+## Local development
 
 Use Node **22.13 or newer**.
 
@@ -112,147 +107,90 @@ npm --prefix sites/fieldwork-supply ci
 npm --prefix sites/fieldwork-agent ci
 ```
 
-Create a dedicated Supabase development project. Inspect its tables, then apply
-`database/schema.sql` once to its empty public schema. It intentionally does not
-drop existing tables. The current project has already been provisioned; do not
-reapply the initial schema to it or to unrelated projects.
+Copy `.env.example` to `.env` only if no local environment file exists. Preserve
+an existing `.env` and fill missing values. The current Supabase project is
+already provisioned: do not reapply its initial schema or generate new traffic
+as part of ordinary setup.
 
-Copy `.env.example` to `.env` if no local environment file exists. If `.env`
-already exists, preserve it and fill only the missing values.
-
-| Variable | Used for |
+| Server variable | Purpose |
 | --- | --- |
-| `SUPABASE_URL` | Dedicated project's API URL |
-| `SUPABASE_SECRET_KEY` | Backend-only Supabase server secret |
-| `SESSION_SECRET` | Random signing secret of at least 32 characters |
-| `SIMULATION_TOKEN` | Random authorization token for the controlled simulator |
-| `POSTHOG_HOST`, `POSTHOG_PROJECT_TOKEN` | Event ingestion |
-| `POSTHOG_APP_HOST`, `POSTHOG_PROJECT_ID` | Analytics query destination |
-| `POSTHOG_PERSONAL_API_KEY` | Backend-only read/query credential |
-| `OPENAI_API_KEY`, `OPENAI_MODEL` | OpenAI Responses API analyst |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Database queries and application transactions |
+| `POSTHOG_HOST`, `POSTHOG_PROJECT_TOKEN` | Storefront event capture; the capture token is public by design |
+| `POSTHOG_APP_HOST`, `POSTHOG_PROJECT_ID`, `POSTHOG_PERSONAL_API_KEY` | Private server-side analytics queries |
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | OpenAI Responses API investigations |
+| `SESSION_SECRET` | Storefront session signing; at least 32 random characters |
 
-The OpenAI model is configured as `gpt-6.1-terra`. A valid key and model access do
-not establish that API credits are available. No paid agent request is required
-to run the automated tests.
+Set `OPENAI_MODEL` to a model available to the configured OpenAI project. Paid
+model requests are not required for automated tests. Keep server secrets out of
+browser bundles, GitHub files, screenshots and recordings. The public read-only
+analytics deployment does not need storefront session, simulation or capture
+credentials.
 
 ```sh
 npm run configure
-# Generates the storefront's public ingestion configuration:
-cd sites/fieldwork-supply
-node build-analytics.mjs
-cd ../..
-
-# Run these in separate terminals:
+# In separate terminals:
 npm run dev:store       # http://localhost:3001
 npm run dev:analytics   # http://localhost:3000
 ```
 
-Local previews use the Sites starter's simulated ChatGPT sign-in. Hosted access
-uses the Site's private access policy. Demo shopper selection is a simulation,
-not production customer authentication.
+`npm run configure` copies canonical shared modules into the two apps. Edit
+`platform/` rather than generated `sites/*/lib/platform/` copies. Storefront
+browser capture configuration is loaded from its deployed runtime endpoint;
+an ignored local analytics-config file is not a deployment dependency.
 
-When no model key is configured, the chat explicitly uses **Guided analysis**.
-When a configured provider fails, the application returns an error instead of
-inventing an answer or silently claiming the model succeeded.
-
-## Credentials and GitHub
-
-**Never commit `.env`, `.dev.vars`, server keys or generated customer data.**
-Only `.env.example`, containing variable names and safe example values, belongs
-in GitHub. Local environment files, generated builds, dependency directories and
-runtime state are ignored.
+For standalone Cloudflare hosting:
 
 ```sh
-# Print whether the local environment file is ignored:
-git check-ignore .env
-# Scan source/build files against configured server-secret values without printing them:
-node scripts/check_secrets.mjs
+npm --prefix sites/fieldwork-agent run build:resume
+npm --prefix sites/fieldwork-agent run check:resume   # deployment dry run
+npm --prefix sites/fieldwork-agent run deploy:resume # requires authorized Cloudflare login
 ```
 
-`npm run configure` writes ignored local `.dev.vars` files. Those files do not
-configure production. Set hosted secrets in each Site's runtime environment, then
-deploy a new saved version. The storefront does not receive the OpenAI key or
-PostHog personal query key. Keep both Sites owner-private for this initial build.
-
-The development OpenAI key was created through the secure OpenAI Developers
-setup flow and saved to the developer-confirmed local environment file. It is
-not included in this repository.
-
-## Two different kinds of simulation
-
-| Dataset | What it represents |
-| --- | --- |
-| `fieldwork_synthetic_2000_v1` | Earlier direct import: 2,000 profiles, 32,803 events, 5,790 visits and 1,492 simulated purchases. It contains no corresponding application order records. |
-| `fieldwork_flow_v1` | New simulation that calls login, cart, checkout and payment APIs, creating persistent orders before telemetry delivery. Implemented, not yet run for all 2,000 shoppers. |
-| `fieldwork_live_v2` | Manual browser and backend verification journeys in the upgraded application. Still fictional shoppers and simulated payments. |
-
-Do not use the earlier import as proof that the new application flows work.
-
-After configuring the backend and verifying one manual checkout, set
-`STORE_BASE_URL` and run:
-
-```sh
-npm run simulate -- --users 2
-npm run simulate -- --users 2000
-```
-
-The simulator uses four workers, stable shopper/session/request IDs and a local
-checkpoint. Each shopper has two visits over November 9–22, 2026 UTC. A planted
-scenario lowers mobile payment completion in the second week. Change the dataset
-version before changing those fixed dates or generation logic.
-
-For a private hosted storefront, the simulator also needs supported platform
-service access in `STORE_SERVICE_TOKEN`. Keep it local. The simulator uses the
-same business-operation handlers as the browser; it does not insert orders
-straight into database tables or fabricate PostHog purchase events.
+Run `build:resume` immediately before deploying that target. The deployment
+script rejects an existing private-Sites build. Runtime secrets must be
+configured separately as described in the hosting guide.
 
 ## Validation
 
+The current implementation passes **37 automated tests**, TypeScript checks,
+both production builds and the Cloudflare deployment dry run. CI validates both
+apps and the standalone target.
+
+Live checks verified anonymous public access, PostHog/Supabase queries, AI
+investigations, zero differing canonical comparison counts and blocked public
+write routes. The checked window contained **508 browser visitor profiles,
+507 signed-in shopper accounts, 48 demo orders and USD 2,694 gross merchandise
+revenue**. A public PowerPoint export downloaded with **20 slides, two editable
+charts and two embedded workbooks**. These are observations from the verified
+window, not hardcoded dashboard values.
+
 ```sh
 npm test
-(cd sites/fieldwork-agent && ./node_modules/.bin/tsc --noEmit)
-(cd sites/fieldwork-supply && ./node_modules/.bin/tsc --noEmit)
-npm --prefix sites/fieldwork-agent run build
-npm --prefix sites/fieldwork-supply run build
 ```
 
-Database tests run the SQL against embedded Postgres through PGlite. They check
-server-calculated totals, line-item consistency, session ownership, idempotent
-retries, duplicate-order prevention, outbox claiming, sign-out, and denied browser
-access. Server tests check signed sessions, date/dataset bounds, approved tools,
-authentication and cross-origin write rejection.
+## Demo recording status
 
-GitHub Actions runs tests, type checks and builds without live provider secrets.
-Live Supabase, PostHog and OpenAI verification is reported separately from those
-checks. See [hosted collection evidence](docs/live_collection_verification.md)
-and the [earlier synthetic fixture audit](docs/synthetic_dataset.md).
+**There is no current demo video.** Outdated finished videos, clips and raw
+recordings have been removed from the project. A replacement will be recorded
+only after the owner tests the updated app and requests it. Existing recording
+helpers are legacy references and need updating before reuse; see
+[recording status](docs/demo/README.md).
 
-## Current boundaries
+## Repository and documentation
 
-- All customer activity and payments are simulated. This is not a real payment system.
-- The workspace is single-owner, not a multi-tenant analytics service.
-- PostHog retries are request-triggered or explicitly invoked; no scheduled retry worker is configured.
-- Capture acceptance is not proof of stored/queryable events; reconcile against PostHog records.
-- Reconciliation is limited to the latest 500 orders from each source and labels that scope.
-- Date windows use UTC and an exclusive end. Funnels can truncate outcomes near the window end.
-- The custom experiment includes illustrative fixed-horizon inference on a planted synthetic effect. It cannot establish real causal lift or justify a production rollout. Native PostHog flag orchestration is not implemented.
-- Persistent chat history and production customer authentication are future work.
+| Path | Purpose |
+| --- | --- |
+| `sites/fieldwork-agent/` | Analytics UI, dictionary, readouts and public deployment target |
+| `sites/fieldwork-supply/` | Separate storefront UI and backend routes |
+| `platform/` | Canonical shared backend, sessions, telemetry, metrics and agent tools |
+| `database/`, `supabase/migrations/` | Database definitions and versioned changes |
+| `tests/` | Transaction, authorization, analysis, readout and public-boundary checks |
+| `docs/` | Architecture, collection definitions and deployment instructions |
+| `app.py`, `analysis_engine.py`, `readout_deck.py` | Earlier Streamlit prototype; not the public app runtime |
 
-The next verification milestone is a signed-in hosted checkout, its matching
-stored PostHog event, and a source-backed OpenAI investigation in that hosted session. Funded local generation and independent source queries have passed.
-
-## Product, web analytics, and experimentation demo
-
-The Experiments workspace compares the original product cards with direct Add to bag buttons. It includes actual before/after screenshots, a reproducible 2,000-visitor synthetic dataset (9,126 events), product funnels, device/channel segmentation, a difference interval, guardrails, and traceable read-only experiment evidence. The planted effect is explicitly labeled synthetic.
-
-- [Experiment specification, metrics, screenshots, and reproduction](docs/experiments/quick-add.md)
-- [Open experiment workspace](https://fieldwork-analytics-agent.bapnocap.chatgpt.site/?view=experiments)
-- [Preview control](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=A) · [Preview treatment](https://fieldwork-checkout-lab.bapnocap.chatgpt.site/?experiment_preview=B)
-
-PostHog MCP verified all 9,126 unique synthetic event records and the exact per-variant counts. The frontend now executes fresh Supabase and PostHog queries, exposes the evidence and query time, and checks aggregate parity across both sources. No bundled result is used as fallback. This is a custom-coded A/B experiment, not a native PostHog feature flag. Preview overrides are excluded from analytics and checkout writes.
-
-### Query-backed experiment data
-
-The synthetic fixture is now persisted in Supabase as well as PostHog. Select **Query source** to reproduce results from either system, and **Traffic cohort** to inspect newly collected demo-store interactions. Visitor assignments, exposures and session links persist in Supabase; a trigger attributes commerce outcomes using verified order IDs and server prices. Browser event capture cannot forge purchases.
-
-For a fresh database, apply `database/schema.sql` followed by `database/experiments.sql`. To backfill the existing synthetic fixture, run `node scripts/import_experiment_database.mjs` after generating it. The import is UUID-idempotent and does not create commerce orders. The root generator no longer creates a production-bundled result artifact. See the [experiment guide](docs/experiments/quick-add.md), [Supabase audit SQL](sql/experiment_audit.sql), and [PostHog query](sql/posthog_experiment.sql).
+- [Workspace navigation and metric definitions](docs/analytics-workspace.md)
+- [Website collection and source comparison](docs/website-collection.md)
+- [USD product revenue](docs/product-revenue.md)
+- [Agent intent handling](docs/agent-intent.md)
+- [Detailed platform architecture](docs/platform_build.md)
+- [Public resume hosting](docs/resume-hosting.md)
