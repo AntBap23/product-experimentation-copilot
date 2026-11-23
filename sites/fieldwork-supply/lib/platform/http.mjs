@@ -36,7 +36,7 @@ export async function api(request,env,{user,app='analytics'}={}){
    const errors=results.flatMap((r,i)=>r.status==='rejected'?[{tool:names[i],message:r.reason.message}]:[]);
    let ph,websiteTraffic;
    if(env.POSTHOG_PERSONAL_API_KEY){try{ph=await posthog(env,posthogQuery('posthog_overview',args));}catch(error){errors.push({tool:'PostHog',message:error.message});}}
-   if(args.dataset==='fieldwork_live_v2'&&env.POSTHOG_PERSONAL_API_KEY){try{const result=await posthog(env,posthogQuery('website_traffic',args));const row=result.rows[0]||[];websiteTraffic={visitors:row[0],sessions:row[1],pageviews:row[2],events:row[3],source:'PostHog browser events · website activity',scope:'Manual website traffic only; generated cohorts and backend copies excluded.'};}catch(error){errors.push({tool:'website_traffic',message:error.message});}}
+   if(args.dataset==='fieldwork_live_v2'&&env.POSTHOG_PERSONAL_API_KEY){try{const result=await runTool('website_traffic',args,env);websiteTraffic={...result.data,source:result.source};evidence.push(result);}catch(error){errors.push({tool:'website_traffic',message:error.message});}}
    return respond({evidence,errors,posthog:ph,websiteTraffic,window:args},evidence.length?200:503);
   }
   if(request.method!=='POST')throw new HttpError(404,'Endpoint not found.');
