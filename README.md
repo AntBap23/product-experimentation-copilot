@@ -13,9 +13,9 @@ pipeline, and API integrations are real.
 
 | Area | Implemented and verified | Still pending |
 | --- | --- | --- |
-| Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Verify checkout again in the hosted signed-in session. |
-| Supabase | Dedicated development project provisioned; 15 protected tables, six demo shopper accounts, twelve active products. Transaction and authorization tests pass. | Generated traffic is isolated and delivery-disabled; the website view uses actual browser interactions. |
-| Analytics UI | Separate dashboard, chat, evidence drawer, experiment workspace and editable PowerPoint readout. Supabase and PostHog source selection executes fresh queries and compares the results. | Continue validation with planned real traffic. |
+| Storefront | Database-backed upgrade and A/B card variants published privately. Actual local-browser checkouts through both variants saved Supabase orders using simulated payment. | Plan a real-customer rollout; hosted demo checkout journeys are verified. |
+| Supabase | Dedicated development project provisioned; Protected tables, preset and server-issued demo shopper accounts, twelve active products. Transaction and authorization tests pass. | Generated traffic is isolated and delivery-disabled; the website view uses actual browser interactions. |
+| Analytics UI | Overview, Ask AI, Experiments, Data Sources, a 22-entry Data Dictionary, query evidence and editable PowerPoint readouts. Supabase and PostHog source selection executes fresh queries and compares the results. | Continue validation with planned real traffic. |
 | OpenAI agent | Funded Responses API tool-calling investigations return model explanations and inspectable evidence. The final bounded turn is reserved for an explanation. | Evaluate quality on more real analytics questions. |
 | PostHog | Server-only query key configured. Fresh queries independently reproduce the persisted experiment metrics; transactional outboxes deliver commerce and experiment events. | No scheduled retry worker; delivery lag is shown as a comparison difference. |
 | Experiments | Supabase-persisted assignments, exposures and session/order attribution. Live source queries, synthetic/live cohort selection, comparison, methods and screenshots. | A separately planned real-customer test and native PostHog flag integration. |
@@ -25,6 +25,12 @@ and the [existing storefront](https://fieldwork-checkout-lab.bapnocap.chatgpt.si
 The experiment view executes live queries against either source. The scripted
 2,000-visitor fixture and live demo interactions are kept in separate datasets.
 OpenAI credits are configured. The captioned walkthrough uses actual tool-backed model responses; see [demo recording and readout instructions](docs/demo/README.md).
+
+## Navigating the workspace
+
+Use **Overview** for source-labeled measures, **Ask AI** to investigate, and **Experiments** for control/variant results and editable readouts. **Data Sources** explains the two systems—PostHog and Supabase—and checks their shared canonical events. AI is an analyst over those systems, not another data source.
+
+The **Data Dictionary** supports text search plus source and type filters. Its 22 definitions include calculations, limitations, technical fields, and starting questions that remain editable before submission. It distinguishes visitor profiles from shopper accounts, browser sessions from shopping sessions, and experiment units from both. Experiment questions open with experiment scope. See [workspace navigation and metric definitions](docs/analytics-workspace.md).
 
 ## Website activity and catalog
 
