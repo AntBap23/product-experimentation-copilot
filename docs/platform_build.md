@@ -1,179 +1,173 @@
-# Fieldwork application platform
+# Fieldwork architecture and setup
 
-Two independent websites share a server implementation and a Supabase database:
+The current product consists of a **separate storefront** and a **public
+analytics workspace**. They share canonical server modules and the same
+application data contracts. The analytics workspace runs independently on
+Cloudflare Workers; the existing private Sites targets remain available.
 
-- `sites/fieldwork-supply`: the shop, with same-origin backend endpoints.
-- `sites/fieldwork-agent`: the analytics workspace, chat and evidence inspector.
-- `platform/core.mjs` and `platform/http.mjs`: canonical shared server code.
-- `database/schema.sql`: initial database provisioning SQL, tested against Postgres.
-- `scripts/simulate_shoppers.mjs`: 2,000 shoppers going through application APIs.
+## Runtime components
 
-The older Streamlit prototype and directly imported synthetic dataset are retained
-as prior experiments. They do not establish that this new backend is connected.
+| Component | Responsibility |
+| --- | --- |
+| `sites/fieldwork-supply/` | Storefront, demo sessions, catalog, cart and checkout APIs, browser collection |
+| `sites/fieldwork-agent/` | Overview, Ask AI, Experiments, Data Sources, Data Dictionary, and readout editor |
+| `platform/core.mjs` | Approved read tools, metric/query definitions, source reconciliation, and bounded model tool loop |
+| `platform/http.mjs` | Application API validation, session handling, and route dispatch |
+| `platform/experiment*.mjs` | Experiment definitions, query scopes, aggregation, and comparison |
+| `platform/revenue.mjs` | Purchase-line revenue normalization and independent PostHog aggregation |
+| `sites/fieldwork-agent/deploy/` | Standalone public boundary and durable operational quotas |
+| `sites/fieldwork-agent/lib/readout/` | Readout snapshot contract and editable PowerPoint generation |
+| `database/schema.sql`, `supabase/migrations/` | Initial schema and subsequent database changes |
 
-## Setup
+React/TypeScript and Vinext implement the interface and server integration.
+Supabase/Postgres persists application records. PostHog stores browser and
+canonical server events. OpenAI Responses API selects read-only tools and
+explains their returned evidence. A Durable Object stores quota counters only;
+it is not another analytics data source.
 
-Node 22.13+ is required. Each Site uses the supplied Vinext framework and its own
-locked dependencies. The root test runner uses PGlite to execute the schema and
-transaction tests against embedded Postgres, not a mocked order store.
+## Data path
+
+1. The shop queries the database catalog and identifies a demo shopper/session.
+2. Browser interactions are sent through the explicit PostHog SDK data layer.
+3. Authenticated application actions are validated server-side and stored in
+   Supabase. Purchase stores the order, its trusted line items, canonical event,
+   and delivery record atomically.
+4. The durable outbox forwards canonical events to PostHog using stable event
+   and transaction identifiers. Database `purchase` maps to `order_completed`.
+5. Analytics tools query Supabase and PostHog independently for the selected
+   cohort and UTC dates. Queries and returned results accompany the answer.
+6. Experiment readouts pin a source snapshot. Editing or exporting a readout
+   changes a browser draft, not the database.
+
+Order creation is idempotent. A saved order remains saved if event delivery
+fails. Acceptance by the capture API is distinct from queryable PostHog storage.
+Delivery retries are request-triggered or invoked through an authenticated
+retry route; there is no scheduled retry worker. Public analytics does not
+expose that route.
+
+## Identity, measurements, and scope
+
+The store supports preset fictional shoppers and server-issued visitor profiles.
+A signed, expiring HttpOnly cookie identifies the shopping session. Browser
+identity reset/identify follows profile changes. These profiles are not real
+customer authentication, and demo payments collect no card details.
+
+Website traffic uses PostHog browser person profiles and SDK sessions. Signed-in
+shopper counts and application-session metrics come from Supabase. An experiment
+unit is a separate identifier; creating more shopper profiles in one browser does
+not create independently assigned experimental participants.
+
+The public commerce cohort is **Website activity** (`fieldwork_live_v2`). It
+contains captured site interactions, including manual and automated demo
+journeys. Earlier generated cohorts are isolated. The experiment UI offers
+website interactions and a separately labeled synthetic fixture.
+
+All windows are UTC, start-inclusive/end-exclusive, and at most 93 days. Commerce
+filters and experiment controls have independent scopes. The public app's initial
+commerce window is configured in `vite.resume.config.ts` and is visible/editable
+in the UI. Empty windows return empty measures, not substituted fixture results.
+
+Revenue uses purchase-time quantity × unit price, expressed in USD. Refunds,
+tax, and shipping are excluded. The commerce funnel counts session reach at each
+step; it does not enforce a strict ordered sequence. Channel attribution is the
+application's documented entry-context model, not a complete multi-touch model.
+
+Canonical source comparison excludes browser-only traffic and compares aggregate
+event/user/application-session counts by event, device, channel, and page.
+Order-ID reconciliation separately audits the latest 500 orders in each source
+and reports its scope. Matching aggregates are not a complete record-level audit.
+
+## Agent and experiment behavior
+
+The OpenAI Responses loop offers only approved tools with strict schemas. Server
+code owns dataset, dates, credentials, query templates, and limits. The model may
+interpret a business question, select relevant tools, compare their results, and
+explain limitations; it cannot run arbitrary SQL or write business data. Missing
+connections and unavailable evidence remain visible. A model-free guided route
+exists for development, but the public model-driven demo uses configured OpenAI
+credentials.
+
+The included A/B test compares product-detail-first cards against quick-add cards.
+Assignments/exposures persist in Supabase and canonical events are mirrored to
+PostHog. First-exposure attribution, segments, guardrails, sample-ratio checks,
+and an illustrative conversion interval are implemented. Sparse samples may have
+no interval. Demo/synthetic results do not justify shipping; the UI is not a
+general experiment-creation or automatic rollout service.
+
+## Access boundaries
+
+The existing private Sites routes require their trusted platform identity. The
+standalone Worker intentionally has a separate public read-only boundary. It
+allows status, dashboard, experiment, source-comparison, and analyst requests;
+commerce writes and telemetry retries are not public. It rejects unsupported
+cohorts, extra agent arguments, cross-origin questions, and spoofed private-site
+identity/simulation headers.
+
+Service credentials stay on the server. Database tables/RPCs use the project's
+restricted grants and RLS configuration. Storefront routes validate signed
+session ownership. The public analytics boundary does not accept arbitrary RPC
+names or SQL supplied by visitors.
+
+SQLite-backed Durable Object transactions enforce per-browser and global AI
+quotas, plus request limits. Unavailable usage controls fail closed. Counters
+are operational data only; analytics still comes from PostHog and Supabase.
+
+## Development setup
+
+Use Node 22.13 or newer and the committed lockfiles:
 
 ```sh
 npm ci
 npm --prefix sites/fieldwork-agent ci
 npm --prefix sites/fieldwork-supply ci
-npm test
 ```
 
-Create a dedicated Supabase project. Do not apply the schema to either unrelated
-existing project. Inspect tables before applying `database/schema.sql` once to the
-new project's database. It intentionally does not drop or overwrite existing tables.
-Run Supabase security/performance advisors after applying it. All exposed tables
-have RLS enabled; browser roles have no grants or RPC execution. Server routes
-validate session ownership before running narrowly defined database functions.
+For a fresh database, review `database/schema.sql` and the applicable changes in
+`supabase/migrations/` against a dedicated development project. Preserve migration
+history and inspect existing tables before provisioning. The configured project
+is already populated; do not reinitialize it as part of routine setup.
 
-Configure the ignored root `.env` using `.env.example`. Never paste secret values
-into source files, frontend settings, issue bodies, commit messages, or GitHub.
+Create an ignored `.env` from `.env.example` if none exists. Set:
 
-| Variable | Purpose |
-| --- | --- |
-| `SUPABASE_URL` | New project's API URL |
-| `SUPABASE_SECRET_KEY` | Backend-only `sb_secret_...` key; legacy service role JWT also supported |
-| `SESSION_SECRET` | Random server signing key, at least 32 characters |
-| `SIMULATION_TOKEN` | Random backend simulation authorization token |
-| `POSTHOG_PROJECT_TOKEN` | Public ingestion token; separate from query permission |
-| `POSTHOG_HOST` | US ingestion host for the connected project |
-| `POSTHOG_PERSONAL_API_KEY` | Backend-only personal key restricted to read/query access |
-| `POSTHOG_PROJECT_ID` | `760509` for the existing PostHog project |
-| `OPENAI_API_KEY` | Securely provisioned server-only OpenAI credential |
-| `OPENAI_MODEL` | `gpt-6.1-terra` for the OpenAI Responses tool loop |
-| `MODEL_API_KEY` | Optional alternative compatible-provider credential |
-| `MODEL_NAME` | Explicit model available to that provider |
-| `MODEL_BASE_URL` | OpenAI-compatible API base, never chosen from browser input |
-
-`node scripts/configure_apps.mjs` copies server variables to ignored `.dev.vars`
-files and synchronizes the canonical shared server modules into both Site checkouts.
-It never prints values. Do not manually edit the copied `lib/platform/*.mjs` files.
+- `SUPABASE_URL` and `SUPABASE_SECRET_KEY` for application/database access.
+- `POSTHOG_PROJECT_ID`, `POSTHOG_PERSONAL_API_KEY`, and optionally
+  `POSTHOG_APP_HOST` for server-side queries.
+- `OPENAI_API_KEY` and `OPENAI_MODEL` for model-driven analysis, using a model
+  available to the selected project.
+- `POSTHOG_HOST` and `POSTHOG_PROJECT_TOKEN` for storefront capture.
+- `SESSION_SECRET` with at least 32 random characters for storefront sessions.
 
 ```sh
 npm run configure
 npm run dev:analytics
-# In a separate terminal:
+# In another terminal:
 npm run dev:store
 ```
 
-Local previews use the Sites starter's simulated ChatGPT sign-in. Hosted API routes
-require the platform's trusted request identity or the explicit simulation token.
-Publish new analytics as owner-private. Preserve the storefront's existing access
-policy. Do not make either Site public without reviewing authorization: the
-current workspace model is designed for a single owner, not multiple tenants.
+`npm run configure` copies shared `platform/` modules into both apps and writes
+ignored `.dev.vars` files without printing values. Edit the canonical modules,
+then synchronize. The native local preview uses its development identity; that
+mock is excluded from the standalone public target. The shop obtains its public
+capture configuration from its runtime endpoint, not a generated static file.
 
-## Behavior and guarantees
+## Builds, hosting, and verification
 
-A demo login selects a fictional shopper; it is not customer authentication. The
-backend issues an HttpOnly, signed, expiring cookie. Passwords and payment details
-are not collected. Sessions and carts persist in Supabase and survive page reloads.
-Switching shoppers ends the departing session. A new login starts a new cart.
+The analytics app's `build:resume`, `check:resume`, and `deploy:resume` scripts
+build, validate, and publish the standalone Cloudflare target. The normal app
+`build` scripts preserve the private Sites targets. Build the correct target
+immediately before deployment. Local `.dev.vars` files do not provision hosted
+secrets. See [public deployment](resume-hosting.md).
 
-Prices come from the database catalog. Checkout locks a snapshot of quantities
-and prices. Selecting demo payment advances that checkout. Purchase saves an
-order, its line items, its canonical event and an outbox record in one transaction.
-An explicit UUID request ID makes retries idempotent; the same key with different
-inputs is rejected. Unique checkout constraints prevent duplicate orders.
+`npm test` executes database behavior against PGlite and checks sessions,
+idempotency, catalog trust, metric/revenue contracts, agent tools, experiment
+analysis, readout exports, and public endpoint/quota controls. CI also runs
+TypeScript checks, both app builds, and the standalone dry run. No funded model
+request is needed for the automated suite.
 
-Order IDs are shared across database records and telemetry. PostHog receives
-`order_completed` from the server for a canonical database `purchase` event;
-`canonical_event=purchase` preserves the mapping. Browser-side `purchase` remains
-behavioral telemetry. Never add both event streams together as order counts.
+Live public verification has covered anonymous access, source queries, a
+model-driven source comparison, matching canonical counts, rejected writes, and
+an editable PowerPoint download. Use the app's current evidence for counts and
+query times; old verification totals are not product defaults.
 
-The outbox records pending events, claims deliveries with a processing lease, and
-retains event UUIDs across retries. Capture acceptance is distinct from queryable
-storage. The reconciliation tool checks actual PostHog records, not just capture
-responses. A successful order remains saved if event delivery fails.
-
-The initial retry mechanism is request-triggered, plus an explicit authenticated
-`POST /api/telemetry/retry` endpoint. No background scheduler is configured yet.
-A failed event can remain pending until another request or explicit retry. This
-is visible in the dashboard rather than silently treated as complete delivery.
-
-## Analytics and agent
-
-The dashboard and chat share fixed read-only tools: overview, device funnel,
-daily orders, product revenue, channel performance and order reconciliation.
-Dataset, dates, SQL templates and limits are enforced by server code. The model
-cannot execute arbitrary SQL, choose credentials, or call write endpoints.
-
-With no model credential, chat explicitly says **Guided analysis** and routes to
-approved tools using a small set of intents. With a configured compatible model,
-it runs a bounded tool-calling loop (five rounds, four calls per round) and returns
-tool evidence. Metrics are calculated by SQL/code, never generated by the model.
-A local Ollama endpoint can be used through its OpenAI-compatible `/v1` API
-in local development. A hosted Site cannot reach a model running on your laptop
-without a separately configured reachable service.
-
-Date windows use UTC and an exclusive end date, at most 93 days.
-
-The funnel counts sessions reaching each event, scoped to sessions starting in
-the window and events occurring within it. This can truncate outcomes for sessions
-near the window end; do not treat it as a matured fixed-window experiment metric.
-Revenue is simulated USD revenue. No experiment significance or causal claims are
-implemented. The reconciliation currently audits the latest 500 orders from each
-source and labels that limit; use smaller windows for a complete bounded audit.
-
-## Application-flow simulation
-
-After backend deployment and a verified manual order:
-
-```sh
-# First run a smoke simulation, then expand the same deterministic dataset.
-npm run simulate -- --users 2
-npm run simulate -- --users 2000
-```
-
-Set `STORE_BASE_URL` to the storefront origin. For an owner-private hosted Site,
-`STORE_SERVICE_TOKEN` is a supported platform service-access credential; keep it
-in `.env`. The simulator also sends `SIMULATION_TOKEN`; neither goes in the URL.
-
-The simulation uses four workers, stable shopper/session/request IDs and a local
-checkpoint. Each fictional shopper has two visits over November 9–22 UTC. Requests
-call the same login, cart, payment and checkout handlers as the browser. No direct
-order inserts or fabricated PostHog purchase imports are used. Telemetry delivery
-is deferred until the end to send batches efficiently.
-
-The planted scenario lowers mobile payment completion in the second week.
-All flow events have `dataset_id=fieldwork_flow_v1`, `is_synthetic=true`, and
-`generation_method=application_flow`. Browser/manual flows use
-`fieldwork_live_v2`. The old event-only import uses
-`fieldwork_synthetic_2000_v1` and has no application order records.
-
-Do not treat the simulator's progress counters as an audited business metric;
-verify final counts directly in Supabase and PostHog. Preserve local checkpoints
-for clean resumes. Fixed dates become stale; introduce a new dataset version
-before changing the simulation seed/window or behavior.
-
-## GitHub and deployment
-
-Push code, schema, tests, lockfiles and `.env.example` only. `.env`, `.dev.vars`,
-node modules, generated data, runtime state and built assets are excluded.
-`public/store/analytics-config.js` is generated with the public ingestion token
-and is excluded from Git, but included in the storefront deployment assets.
-
-Use the Sites runtime environment tool to configure backend secrets for each
-Site; `.dev.vars` does not configure production. Keep `.openai/hosting.json`
-free of credentials. GitHub Actions secrets are needed only if adding CI deploys;
-ordinary CI tests need no provider credentials.
-
-The analytics frontend can be published in setup mode before credentials exist.
-Do not replace the live storefront with the new database-required version until
-its Supabase connection and a real hosted checkout have been verified.
-
-## Provisioned development database
-
-Supabase project `mxdmxnbijuhcprozeakh` (Fieldwork Analytics) was created in
-AntBap23's Org on the quoted $0/month plan. The schema was applied to its empty
-public schema. Verification found six demo shoppers, two catalog products and
-11 RLS-enabled tables. Security/performance advisors returned informational
-findings only: RLS without policies is deliberate for server-only tables, and
-unused indexes are expected on a newly provisioned database. The application
-still needs its backend secret key before it can connect over REST.
-
-OpenAI uses the [Responses API function-calling flow](https://developers.openai.com/api/docs/guides/function-calling) with storage disabled, strict tool schemas, server-enforced parameters, and bounded iterations. The new key was provisioned through the OpenAI Developers secure setup flow and saved only to the developer-confirmed ignored `.env` destination. No plaintext key belongs in chat or GitHub.
+Archived Streamlit, generation, and recording scripts remain historical tooling.
+They are not required to operate or deploy the current public analytics app.
