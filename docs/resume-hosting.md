@@ -1,5 +1,7 @@
 # Public resume deployment
 
+Public URL: [Fieldwork Analytics](https://fieldwork-analytics-demo.antbap23.workers.dev/).
+
 The analytics app can run independently on Cloudflare Workers. It uses the existing React/Vinext frontend and read-only Supabase/PostHog tools, with a free `workers.dev` address. No purchased domain or ChatGPT account is required for visitors. The storefront remains a separate app.
 
 ## Targets
@@ -35,3 +37,7 @@ The public app starts with the recorded demo window, October 27–November 24, 2
 Target the Workers Free plan and its supplied workers.dev address. Free-plan CPU/request limits still apply and need live verification; the deployment dry run alone does not prove runtime CPU fit. No paid plan, purchased domain, or DNS change is part of this deployment. OpenAI calls use the separately funded API account. Supabase/PostHog retain their existing plans and limits.
 
 Reference: https://developers.cloudflare.com/workers/platform/pricing/ and https://developers.cloudflare.com/workers/configuration/routing/workers-dev/.
+
+## Live verification
+
+The public HTTPS page returns 200 without a ChatGPT session. The deployed app successfully queried both configured data sources and showed 508 PostHog visitor profiles, 507 Supabase shopper accounts, 48 saved demo orders and USD 2,694 gross merchandise revenue in the configured window. A public OpenAI investigation independently compared product revenue and order IDs across both sources and found agreement. Public commerce-write routes return 404. All 37 tests and both deployment builds pass.

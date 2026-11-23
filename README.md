@@ -9,6 +9,8 @@ The **storefront and analytics workspace are separate applications**. All shoppe
 and payments are fictional. The application code, SQL transactions, telemetry
 pipeline, and API integrations are real.
 
+**[Open the public analytics demo](https://fieldwork-analytics-demo.antbap23.workers.dev/)** — no ChatGPT login or purchased domain required.
+
 ## Current status
 
 | Area | Implemented and verified | Still pending |
