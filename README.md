@@ -26,6 +26,10 @@ The experiment view executes live queries against either source. The scripted
 2,000-visitor fixture and live demo interactions are kept in separate datasets.
 OpenAI credits are configured. The captioned walkthrough uses actual tool-backed model responses; see [demo recording and readout instructions](docs/demo/README.md).
 
+## Public resume hosting
+
+The analytics app also has a standalone Cloudflare Workers target with a free workers.dev address. Public access is limited to approved read-only analytics routes, with server-side credentials and a shared daily AI-question quota. A purchased domain and visitor ChatGPT account are not required. The existing private Sites deployment stays separate. See [standalone deployment and usage limits](docs/resume-hosting.md).
+
 ## Navigating the workspace
 
 Use **Overview** for source-labeled measures, **Ask AI** to investigate, and **Experiments** for control/variant results and editable readouts. **Data Sources** explains the two systems—PostHog and Supabase—and checks their shared canonical events. AI is an analyst over those systems, not another data source.

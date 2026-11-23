@@ -7,3 +7,5 @@
 
 @media(max-width:900px){.fw-sidebar{visibility:hidden;pointer-events:none}.fw-sidebar.is-open{visibility:visible;pointer-events:auto}.fw-nav-backdrop{display:block;position:fixed;inset:64px 0 0;z-index:25;background:#15243a55}}
 @media(min-width:901px){.fw-nav-backdrop{display:none}}
+
+.fw-topbar-links>a{display:flex;gap:8px;align-items:center;font-size:14px}
