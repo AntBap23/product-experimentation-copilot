@@ -1,0 +1,25 @@
+name: Verify platform
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm --prefix sites/fieldwork-agent ci
+      - run: ./node_modules/.bin/tsc --noEmit
+        working-directory: sites/fieldwork-agent
+      - run: npm --prefix sites/fieldwork-agent run build
+      - run: npm --prefix sites/fieldwork-supply ci
+      - run: ./node_modules/.bin/tsc --noEmit
+        working-directory: sites/fieldwork-supply
+      - run: npm --prefix sites/fieldwork-supply run build

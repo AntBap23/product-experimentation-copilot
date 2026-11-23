@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="A demo outdoor shop with a practice checkout.">
+<title>Fieldwork Supply | Trail essentials</title>
+<link rel="stylesheet" href="style.css">
+<script src="analytics-config.js" defer></script>
+<script src="analytics.js" defer></script>
+<script src="backend.js" defer></script>
+<script src="experiment.js" defer></script>
+<script src="shop.js?v=persistent-backend-1" defer></script>
+</head>
+<body>
+<header><a class="brand" href="./">▲ FIELDWORK SUPPLY</a><div class="nav"><a href="#gear">Shop gear</a><button id="account">Demo sign in</button><button id="cart">Bag <span id="count">0</span></button></div></header>
+<main>
+<section class="hero">
+<div class="intro"><p class="eyebrow">THE DAY HIKE COLLECTION</p><h1>Out for<br>the day.</h1><p>Dependable essentials for the trail, the overlook, and the long way home.</p><a class="cta" href="#gear">Explore the collection <span>↘</span></a></div>
+<img alt="Hiker looking out over a mountain valley" src="https://images.unsplash.com/photo-1629418713613-3913dfdceaeb?w=1300&amp;fit=crop&amp;q=82" fetchpriority="high">
+</section>
+<section class="gear" id="gear"><h2>Trail essentials</h2><div id="products" class="products"></div></section>
+</main>
+<footer><span>FIELDWORK SUPPLY</span><p>Demo store · All orders are simulated.</p>
+<details><summary>Analytics event log</summary><p>This log clears when you reload the page.</p><ol id="events"></ol></details></footer>
+<dialog id="panel" aria-labelledby="panel-title">
+<div class="panel-top"><p class="eyebrow">FIELDWORK SUPPLY</p><button id="close" aria-label="Close dialog">×</button></div>
+<div id="panel-content"></div>
+</dialog>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "fieldwork-analytics-platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "configure": "node scripts/configure_apps.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "dev:analytics": "npm --prefix sites/fieldwork-agent run dev -- --port 3000",
+    "dev:store": "npm --prefix sites/fieldwork-supply run dev -- --port 3001",
+    "simulate": "node scripts/simulate_shoppers.mjs",
+    "experiment:generate": "node scripts/generate_experiment.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.17"
+  }
+}
