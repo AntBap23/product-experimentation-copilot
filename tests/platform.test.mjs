@@ -16,7 +16,7 @@ test('shopper cookies are signed and tampering is rejected',async()=>{
  await assert.rejects(readSession(token+'x',key));await assert.rejects(readSession(token,'b'.repeat(48)));
 });
 test('agent selects approved read-only tools and cannot run model-supplied SQL',async()=>{
- assert.deepEqual(chooseTools('Do purchases match PostHog?'),['overview','reconcile']);
+ assert.deepEqual(chooseTools('Do purchases match PostHog?'),['overview','web_compare','reconcile']);
  await assert.rejects(runTool('execute_sql',{},{}));
  assert.match(posthogQuery('posthog_orders',{start:'2026-11-01',end:'2026-11-23'}),/event = 'order_completed'/);
 });

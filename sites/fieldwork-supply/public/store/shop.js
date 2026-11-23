@@ -34,7 +34,10 @@ let sequence = 0;
 
 function track(event, properties = {}) {
   const data = {
+    ...window.fieldworkWebContext(event),
     ...campaign,
+    is_generated_traffic: false,
+    traffic_origin: 'website',
     experiment_id: experiment.id, variant: experiment.variant, experiment_unit_id: experiment.visitor, allocation_unit: "visitor", experiment_preview: experiment.preview,
     ...properties,
     demo_session_id: demoSessionId,
@@ -254,3 +257,8 @@ dialog.addEventListener('close', () => { checkoutId = undefined; });
 })();
 
 })().catch(error=>{const banner=document.createElement("div");banner.id="store-message";banner.setAttribute("role","alert");banner.textContent=error.message+" Reload after signing in to retry.";document.body.prepend(banner);});
+
+// Explicit human interaction collection; no automatic events are generated as visits.
+const recordedDepths=new Set();
+addEventListener('scroll',()=>{const scrollable=document.documentElement.scrollHeight-innerHeight;if(scrollable<=0)return;const depth=100*scrollY/scrollable;for(const milestone of [25,50,75,100])if(depth>=milestone&&!recordedDepths.has(milestone)){recordedDepths.add(milestone);track('scroll_depth',{depth_percent:milestone});}},{passive:true});
+document.addEventListener('click',event=>{const link=event.target.closest?.('a[href]');if(!link)return;try{const url=new URL(link.href);if(['https:','http:'].includes(url.protocol))track('link_clicked',{link_url:url.origin+url.pathname,link_domain:url.hostname,is_outbound:url.origin!==location.origin});}catch{}});

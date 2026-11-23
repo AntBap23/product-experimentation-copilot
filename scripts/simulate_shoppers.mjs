@@ -7,6 +7,7 @@ if(!Number.isInteger(count)||count<1||count>2000)throw Error('--users must be be
 const config={...process.env};
 for(const line of readFileSync(new URL('.env',root),'utf8').split('\n')){if(line&&!line.startsWith('#')&&line.includes('=')){const p=line.indexOf('=');config[line.slice(0,p)]??=line.slice(p+1);}}
 if(!config.SIMULATION_TOKEN)throw Error('Set SIMULATION_TOKEN in the ignored .env file.');
+const workers=Number(args[args.indexOf('--workers')+1])||16;if(!Number.isInteger(workers)||workers<1||workers>24)throw Error('--workers must be 1–24');
 const base=config.STORE_BASE_URL||'http://localhost:3001';
 const folder=new URL('data/application-flow-v1/',root);mkdirSync(folder,{recursive:true});
 const checkpoint=new URL('progress.json',folder),state=existsSync(checkpoint)?JSON.parse(readFileSync(checkpoint,'utf8')):{completed:[],orders:0,actions:0};
@@ -33,8 +34,9 @@ async function shopper(number){
   // Fixed two complete UTC weeks; all requests go through normal application handlers.
   const day=visit*7+Math.floor(rng()*7);let clock=Date.parse('2026-11-09T09:00:00Z')+day*86400000+Math.floor(rng()*10)*3600000;
   const session=sessionUuid(user+':'+visit,clock),login=await request('/api/store/session',{user,session_id:session,device,channel,at:new Date(clock).toISOString()});
+  const context={page_name:'Fieldwork Supply | Home',page_type:'home',page_path:'/store/index.html',page_url:'https://fieldwork-checkout-lab.bapnocap.chatgpt.site/store/index.html',site_section:'shop',referrer_domain:{organic:'www.google.com',email:'mail.example.test',paid_search:'www.google.com',social:'social.example.test'}[channel],utm_source:channel,utm_medium:{organic:'organic',email:'email',paid_search:'cpc',social:'social'}[channel],utm_campaign:visit?'returning_shoppers':'trail_launch',browser:device==='Mobile'?'Mobile Safari':'Chrome',os:device==='Mobile'?'iOS':'Windows',screen_width:device==='Mobile'?390:1440,screen_height:device==='Mobile'?844:900,language:'en-US',visitor_id:user,context_origin:'simulation'};
   let sequence=0;
-  async function action(name,data={}){clock+=15000+Math.floor(rng()*45000);sequence++;const result=await request('/api/store/action',{action:name,data,request_id:uuid(`${session}:${sequence}:${name}`),at:new Date(clock).toISOString(),defer_telemetry:true},login.token);state.actions++;if(name==='purchase')state.orders++;return result;}
+  async function action(name,data={}){clock+=15000+Math.floor(rng()*45000);sequence++;const result=await request('/api/store/action',{action:name,data:{...data,_web:{...context,page_name:name.includes('checkout')||name.includes('payment')||name==='purchase'?'Fieldwork Supply | Checkout':context.page_name,page_type:name==='purchase'?'confirmation':name.includes('checkout')||name.includes('payment')?'checkout':name==='view_item'?'product':'home'}},request_id:uuid(`${session}:${sequence}:${name}`),at:new Date(clock).toISOString(),defer_telemetry:true},login.token);state.actions++;if(name==='purchase')state.orders++;return result;}
   await action('demo_signed_in');await action('$pageview');
   const product=rng()<.55?'ridge-22':'summit-750';await action('view_item',{item_id:product});
   if(rng()<.65){await action('add_to_cart',{item_id:product,quantity:rng()<.15?2:1});
@@ -50,8 +52,8 @@ async function shopper(number){
  if(complete.size%25===0)console.log(`${complete.size}/${count} shoppers finished`);
 }
 const queue=Array.from({length:count},(_,i)=>i+1).filter(n=>!complete.has(n));
-console.log(`Application simulation: ${count} shoppers, two visits each, four workers. Target: ${new URL(base).origin}`);
-await Promise.all(Array.from({length:4},async()=>{while(queue.length)await shopper(queue.shift());}));
-for(let i=0;i<1000;i++){const result=await request('/api/telemetry/retry',{});if(result.status==='pending')throw Error('Database flows completed, but event delivery is pending. Re-run the flush after fixing capture.');if(result.accepted===0)break;}
+console.log(`Application simulation: ${count} shoppers, two visits each, ${workers} workers. Target: ${new URL(base).origin}`);
+await Promise.all(Array.from({length:workers},async()=>{while(queue.length)await shopper(queue.shift());}));
+for(let i=0;i<1000;i++){const result=await request('/api/telemetry/retry',{});const delivery=result.commerce;if(delivery.status==='pending')throw Error('Database flows completed, but event delivery is pending. Retry delivery after fixing capture.');if(delivery.accepted===0)break;if(i%20===0)console.log('Delivered '+(i+1)+' telemetry batches');}
 console.log(JSON.stringify({...state,completed_users:complete.size,completed:undefined},null,2));
 console.log('Verify final stored order and event counts in both Supabase and PostHog; accepted delivery alone does not prove ingestion.');

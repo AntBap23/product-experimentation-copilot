@@ -1,3 +1,4 @@
+import {webContext} from './web-context.mjs';
 import { HttpError,signSession,readSession,rpc,flushOutbox,runTool,analyze,windowArgs,posthog,posthogQuery } from './core.mjs';
 import {compareExperiments} from './experiment-live.mjs';
 const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value);
@@ -10,7 +11,7 @@ export async function api(request,env,{user,app='analytics'}={}){
  try{
   const simulation=Boolean(env.SIMULATION_TOKEN&&request.headers.get('x-simulation-token')===env.SIMULATION_TOKEN);
   if(!user&&!simulation)throw new HttpError(401,'Sign in with ChatGPT to use this application.');
-  if(app==='store'&&['/api/agent','/api/dashboard','/api/experiments'].includes(path))throw new HttpError(404,'Endpoint not found.');
+  if(app==='store'&&['/api/agent','/api/dashboard','/api/experiments','/api/web-comparison'].includes(path))throw new HttpError(404,'Endpoint not found.');
   if(request.method==='GET'&&path==='/api/status')return respond({supabase:Boolean(env.SUPABASE_URL&&env.SUPABASE_SECRET_KEY),posthog_capture:Boolean(env.POSTHOG_PROJECT_TOKEN&&env.POSTHOG_HOST),posthog_query:Boolean(env.POSTHOG_PERSONAL_API_KEY&&env.POSTHOG_PROJECT_ID),model:Boolean(env.OPENAI_API_KEY&&env.OPENAI_MODEL||env.MODEL_API_KEY&&env.MODEL_NAME),mode:env.OPENAI_API_KEY&&env.OPENAI_MODEL||env.MODEL_API_KEY&&env.MODEL_NAME?'agent':'guided',app});
   if(request.method==='GET'&&path==='/api/store/cart'){
    const session=await sessionFor(request,env);return respond({items:await rpc(env,'fw_cart',{p_user:session.user,p_session:session.session_id}),shopper:session});
@@ -24,15 +25,17 @@ export async function api(request,env,{user,app='analytics'}={}){
    const comparison=supabase&&ph?compareExperiments(supabase.data,ph.data):{status:'unavailable',differences:[],reason:results.find(r=>r.status==='rejected')?.reason?.message||'One source is unavailable.'};
    return respond({data:primary.value.data,evidence:primary.value,comparison,other_evidence:source==='supabase'?ph:supabase,checked_at:new Date().toISOString()});
   }
+  if(request.method==='GET'&&path==='/api/web-comparison')return respond(await runTool('web_compare',windowArgs(Object.fromEntries(url.searchParams)),env));
   if(request.method==='GET'&&path==='/api/dashboard'){
    const args=windowArgs(Object.fromEntries(url.searchParams));
    const names=['overview','daily','funnel','products','channels'];
    const results=await Promise.allSettled(names.map(name=>runTool(name,args,env)));
    const evidence=results.filter(r=>r.status==='fulfilled').map(r=>r.value);
    const errors=results.flatMap((r,i)=>r.status==='rejected'?[{tool:names[i],message:r.reason.message}]:[]);
-   let ph;
+   let ph,websiteTraffic;
    if(env.POSTHOG_PERSONAL_API_KEY){try{ph=await posthog(env,posthogQuery('posthog_overview',args));}catch(error){errors.push({tool:'PostHog',message:error.message});}}
-   return respond({evidence,errors,posthog:ph,window:args},evidence.length?200:503);
+   if(args.dataset==='fieldwork_live_v2'&&env.POSTHOG_PERSONAL_API_KEY){try{const result=await posthog(env,posthogQuery('website_traffic',args));const row=result.rows[0]||[];websiteTraffic={visitors:row[0],sessions:row[1],pageviews:row[2],events:row[3],source:'PostHog browser events · website activity',scope:'Manual website traffic only; generated cohorts and backend copies excluded.'};}catch(error){errors.push({tool:'website_traffic',message:error.message});}}
+   return respond({evidence,errors,posthog:ph,websiteTraffic,window:args},evidence.length?200:503);
   }
   if(request.method!=='POST')throw new HttpError(404,'Endpoint not found.');
   mutationGuard(request);
@@ -73,9 +76,9 @@ export async function api(request,env,{user,app='analytics'}={}){
    if(!allowed.includes(body.action))throw new HttpError(400,'Unsupported shopping action.');
    const data=body.data||{};if(typeof data!=='object'||Array.isArray(data))throw new HttpError(400,'Invalid action data.');
    if(data.quantity!==undefined&&(!Number.isInteger(data.quantity)||data.quantity<1||data.quantity>20))throw new HttpError(400,'Quantity must be an integer between 1 and 20.');
-   const result=await rpc(env,'fw_store_action',{p_user:claims.user,p_session:claims.session_id,p_action:body.action,p_data:data,p_request:body.request_id,p_at:simulation?validSimulationTime(body.at):new Date().toISOString()});
+   const result=await rpc(env,'fw_store_action_with_context',{p_user:claims.user,p_session:claims.session_id,p_action:body.action,p_data:{...data,_web:webContext(data._web)},p_request:body.request_id,p_at:simulation?validSimulationTime(body.at):new Date().toISOString()});
    const telemetry=simulation&&body.defer_telemetry?{status:'pending',reason:'Deferred for batch delivery.'}:await flushOutbox(env);
-   const experiment_telemetry=await flushOutbox(env,true);
+   const experiment_telemetry=simulation&&body.defer_telemetry?{status:'not_applicable'}:await flushOutbox(env,true);
    return respond({...result,telemetry,experiment_telemetry},200,body.action==='demo_signed_out'?{'Set-Cookie':cookie('',url,0)}:{});
   }
   throw new HttpError(404,'Endpoint not found.');
